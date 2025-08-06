@@ -1,7 +1,7 @@
-# TO DO LIST
+# TO DO LIST (no commands)
 1 - improvement
 
-## 2 - angular commands
+## 2 - angular code
 ## 3 - node js
 ## 4 - next js
 
