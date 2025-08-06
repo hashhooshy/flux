@@ -14,7 +14,7 @@
         // Import the functions you need from the SDKs
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global variables for Firebase access
         window.firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
@@ -63,7 +63,7 @@
             background-color: #f3f4f6;
         }
         /* Style for the custom modal dialog */
-        .custom-alert-overlay {
+        .custom-alert-overlay, .custom-confirm-overlay, .custom-prompt-overlay, .flux-modal-overlay, .toast-container {
             position: fixed;
             top: 0;
             left: 0;
@@ -75,7 +75,7 @@
             justify-content: center;
             z-index: 100;
         }
-        .custom-alert-box {
+        .custom-alert-box, .custom-confirm-box, .custom-prompt-box, .flux-modal-content {
             background-color: white;
             padding: 2rem;
             border-radius: 0.75rem;
@@ -229,6 +229,112 @@
         #flux-editor::placeholder {
             color: #6b7280; /* Darker placeholder text for visibility on white background */
         }
+
+        /* Toast notifications */
+        .toast-container {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            align-items: flex-end;
+            pointer-events: none; /* Allows clicks to pass through */
+            background-color: transparent; /* Overlay should be transparent */
+        }
+        .toast-item {
+            background-color: white;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            color: #333;
+            font-size: 0.875rem;
+            opacity: 0;
+            transform: translateY(-20px);
+            animation: fadeInOut 4s forwards;
+            pointer-events: auto; /* Re-enable pointer events for the toast itself */
+        }
+        .toast-item.success { border-left: 5px solid #10B981; } /* Green */
+        .toast-item.error { border-left: 5px solid #EF4444; }   /* Red */
+        .toast-item.info { border-left: 5px solid #3B82F6; }    /* Blue */
+        .toast-item.warning { border-left: 5px solid #F59E0B; } /* Yellow */
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-20px); }
+            10% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+
+        /* Spinner */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #333; /* Default color, can be overridden */
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Accordion */
+        .accordion-header {
+            cursor: pointer;
+            padding: 1rem;
+            background-color: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .accordion-content {
+            padding: 1rem;
+            background-color: #ffffff;
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height 0.3s ease-out;
+        }
+        .accordion-item.active .accordion-content {
+            max-height: 500px; /* Adjust as needed */
+            transition: max-height 0.5s ease-in;
+        }
+        .accordion-icon {
+            transition: transform 0.3s ease-out;
+        }
+        .accordion-item.active .accordion-icon {
+            transform: rotate(90deg);
+        }
+
+        /* Tabs */
+        .tab-buttons {
+            display: flex;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .tab-button {
+            padding: 0.75rem 1.25rem;
+            cursor: pointer;
+            border: none;
+            background-color: transparent;
+            font-weight: 500;
+            color: #6b7280;
+            transition: color 0.3s, border-color 0.3s;
+        }
+        .tab-button.active {
+            color: #4F46E5;
+            border-bottom: 2px solid #4F46E5;
+        }
+        .tab-content {
+            padding: 1rem;
+            background-color: #ffffff;
+            border-radius: 0 0 0.5rem 0.5rem;
+        }
+        .tab-pane {
+            display: none;
+        }
+        .tab-pane.active {
+            display: block;
+        }
     </style>
 </head>
 <body class="bg-gray-100 p-4">
@@ -291,6 +397,32 @@
       </div>
     </div>
 
+    <!-- Custom Confirm Modal -->
+    <div id="custom-confirm-modal" class="custom-confirm-overlay hidden">
+        <div class="custom-confirm-box">
+            <p id="custom-confirm-text" class="text-gray-800"></p>
+            <div class="mt-4 flex justify-center space-x-4">
+                <button id="custom-confirm-ok" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">OK</button>
+                <button id="custom-confirm-cancel" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Prompt Modal -->
+    <div id="custom-prompt-modal" class="custom-prompt-overlay hidden">
+        <div class="custom-prompt-box">
+            <p id="custom-prompt-text" class="text-gray-800"></p>
+            <input type="text" id="custom-prompt-input" class="w-full h-10 px-4 mt-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Enter value">
+            <div class="mt-4 flex justify-center space-x-4">
+                <button id="custom-prompt-ok" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">OK</button>
+                <button id="custom-prompt-cancel" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
 
     <script>
         // === Custom Alert Function (Replaces alert()) ===
@@ -302,6 +434,66 @@
             modal.classList.remove('hidden');
             
             closeBtn.onclick = () => modal.classList.add('hidden');
+        };
+
+        // === Custom Confirm Function (Replaces confirm()) ===
+        const showCustomConfirm = (message) => {
+            return new Promise(resolve => {
+                const modal = document.getElementById('custom-confirm-modal');
+                const text = document.getElementById('custom-confirm-text');
+                const okBtn = document.getElementById('custom-confirm-ok');
+                const cancelBtn = document.getElementById('custom-confirm-cancel');
+
+                text.textContent = message;
+                modal.classList.remove('hidden');
+
+                okBtn.onclick = () => {
+                    modal.classList.add('hidden');
+                    resolve(true);
+                };
+                cancelBtn.onclick = () => {
+                    modal.classList.add('hidden');
+                    resolve(false);
+                };
+            });
+        };
+
+        // === Custom Prompt Function (Replaces prompt()) ===
+        const showCustomPrompt = (message, placeholder = '') => {
+            return new Promise(resolve => {
+                const modal = document.getElementById('custom-prompt-modal');
+                const text = document.getElementById('custom-prompt-text');
+                const input = document.getElementById('custom-prompt-input');
+                const okBtn = document.getElementById('custom-prompt-ok');
+                const cancelBtn = document.getElementById('custom-prompt-cancel');
+
+                text.textContent = message;
+                input.value = ''; // Clear previous input
+                input.placeholder = placeholder;
+                modal.classList.remove('hidden');
+
+                okBtn.onclick = () => {
+                    modal.classList.add('hidden');
+                    resolve(input.value);
+                };
+                cancelBtn.onclick = () => {
+                    modal.classList.add('hidden');
+                    resolve(null); // Return null if cancelled
+                };
+            });
+        };
+
+        // === Toast Notification ===
+        const showToast = (message, type = 'info', duration = 3000) => {
+            const toastContainer = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.textContent = message;
+            toast.className = `toast-item ${type}`;
+            toastContainer.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, duration);
         };
 
         // === State Variables (replaces React's useState) ===
@@ -325,10 +517,17 @@
         const wait = (seconds) => new Promise(resolve => setTimeout(resolve, seconds * 1000));
 
         // --- View management for Iframe ---
-        const showIframeView = (url) => {
+        const showIframeView = (url, htmlContent = null) => {
             outputContainer.classList.add('hidden');
             iframeViewContainer.classList.remove('hidden');
-            iframeContainer.innerHTML = `<iframe src="${url}"></iframe>`;
+            const iframe = document.createElement('iframe');
+            if (url) {
+                iframe.src = url;
+            } else if (htmlContent) {
+                iframe.srcdoc = htmlContent;
+            }
+            iframeContainer.innerHTML = ''; // Clear previous iframe
+            iframeContainer.appendChild(iframe);
         };
 
         const showMainAppView = () => {
@@ -337,11 +536,61 @@
             iframeContainer.innerHTML = '';
         };
 
+        // --- Simple Expression Evaluator for 'if' conditions ---
+        const safeEvaluateCondition = (conditionString) => {
+            // Basic parsing for simple comparisons like "state.myVar == 'value'"
+            // Supports: ==, !=, >, <, >=, <=
+            const match = conditionString.match(/^(state\.[a-zA-Z0-9_]+)\s*(==|!=|>=|<=|>|<)\s*(.+)$/);
+            if (!match) {
+                console.error("Invalid condition format:", conditionString);
+                return false;
+            }
+
+            let [, leftPath, operator, rightValueStr] = match;
+            
+            // Resolve left operand from state
+            let leftValue = state;
+            const pathParts = leftPath.substring(6).split('.'); // Remove 'state.'
+            for (const part of pathParts) {
+                if (leftValue && typeof leftValue === 'object' && leftValue.hasOwnProperty(part)) {
+                    leftValue = leftValue[part];
+                } else {
+                    leftValue = undefined; // Path not found
+                    break;
+                }
+            }
+
+            // Parse right operand
+            let rightValue;
+            if (rightValueStr.startsWith("'") && rightValueStr.endsWith("'")) {
+                rightValue = rightValueStr.slice(1, -1); // String literal
+            } else if (rightValueStr.toLowerCase() === 'true') {
+                rightValue = true;
+            } else if (rightValueStr.toLowerCase() === 'false') {
+                rightValue = false;
+            } else if (!isNaN(Number(rightValueStr))) {
+                rightValue = Number(rightValueStr); // Number
+            } else {
+                rightValue = rightValueStr; // Treat as raw string
+            }
+
+            // Perform comparison
+            switch (operator) {
+                case '==': return leftValue == rightValue;
+                case '!=': return leftValue != rightValue;
+                case '>': return leftValue > rightValue;
+                case '<': return leftValue < rightValue;
+                case '>=': return leftValue >= rightValue;
+                case '<=': return leftValue <= rightValue;
+                default: return false;
+            }
+        };
+
         // --- Commands List Function ---
         const showCommandsList = () => {
             const commandsList = `
                 <h3 class="font-bold text-xl mb-4">Available Commands</h3>
-                <ul class="text-left">
+                <ul class="text-left text-sm">
                     <li class="mb-2"><strong>heading:</strong> <code>text="string", size="h1|h2|h3|h4", color="tailwind-color-class", id="string(optional)"</code></li>
                     <li class="mb-2"><strong>paragraph:</strong> <code>text="string", color="tailwind-color-class", id="string(optional)"</code></li>
                     <li class="mb-2"><strong>list:</strong> <code>title="string", items=["item1", "item2"], listStyle="numbered|bulleted", itemStyle="tailwind-style-classes", color="tailwind-color-class", id="string(optional)"</code></li>
@@ -357,16 +606,33 @@
                     <li class="mb-2"><strong>progress:</strong> <code>label="string", value="number", max="number", id="string"</code></li>
                     <li class="mb-2"><strong>link:</strong> <code>text="string", url="string"</code> (loads URL in iframe)</li>
                     <li class="mb-2"><strong>iframe:</strong> <code>url="string"</code> (loads URL in iframe)</li>
-                    <li class="mb-2"><strong>search:</strong> <code>query="string", queries="number"</code></li>
-                    <li class="mb-2"><strong>show.image:</strong> <code>text="string", id="string"</code></li>
+                    <li class="mb-2"><strong>search:</strong> <code>query="string"</code></li>
                     <li class="mb-2"><strong>table:</strong> <code>headers=["Header1", "Header2"], rows=[["data1", "data2"]], id="string(optional)"</code></li>
                     <li class="mb-2"><strong>carousel:</strong> <code>images=["url1", "url2"], id="string(optional)"</code></li>
-                    <li class="mb-2"><strong>chart:</strong> <code>type="bar|line|pie", labels=["label1", "label2"], data=[10, 20], title="string" (optional), id="string(optional)"</code></li>
+                    <li class="mb-2"><strong>chart:</strong> <code>type="bar|line|pie", labels=["label1", "label2"], data=[10, 20], title="string (optional)", id="string(optional)"</code></li>
                     <li class="mb-2"><strong>form:</strong> <code>id="string"</code> (a container for inputs)</li>
                     <li class="mb-2"><strong>submit:</strong> <code>formId="string", text="string", onClick="flux commands"</code></li>
-                    <li class="mb-2"><strong>store:</strong> <code>id="string", value="string"</code></li>
-                    <li class="mb-2"><strong>load:</strong> <code>id="string"</code></li>
-                    <li class="mb-2 font-bold">--- New UI Commands ---</li>
+                    <li class="mb-2"><strong>store:</strong> <code>id="string", value="string"</code> (deprecated, use 'set')</li>
+                    <li class="mb-2"><strong>load:</strong> <code>id="string"</code> (deprecated, use 'get')</li>
+                    <li class="mb-2 font-bold mt-4">--- New UI Commands ---</li>
+                    <li class="mb-2"><strong>image:</strong> <code>src="url", alt="text", width="px|% (optional)", height="px|% (optional)", style="tailwind-classes", id="string(optional)"</code></li>
+                    <li class="mb-2"><strong>video:</strong> <code>src="url", controls="true|false", autoplay="true|false", loop="true|false", muted="true|false", width="px|% (optional)", height="px|% (optional)", style="tailwind-classes", id="string(optional)"</code></li>
+                    <li class="mb-2"><strong>audio:</strong> <code>src="url", controls="true|false", autoplay="true|false", loop="true|false", muted="true|false", style="tailwind-classes", id="string(optional)"</code></li>
+                    <li class="mb-2"><strong>iframe.html:</strong> <code>content="<html content>", style="tailwind-classes", id="string(optional)"</code></li>
+                    <li class="mb-2"><strong>codeblock:</strong> <code>code="string", lang="javascript|html|css|python|plaintext", style="tailwind-classes", id="string(optional)"</code></li>
+                    <li class="mb-2"><strong>grid:</strong> <code>columns="number", gap="number", style="tailwind-classes", id="string(optional)"</code></li>
+                    <li class="mb-2"><strong>flex:</strong> <code>direction="row|col", justify="start|end|center|between|around|evenly", align="start|end|center|stretch|baseline", style="tailwind-classes", id="string(optional)"</code></li>
+                    <li class="mb-2"><strong>accordion:</strong> <code>title="string", content="string", id="string(optional)"</code></li>
+                    <li class="mb-2"><strong>tabs:</strong> <code>id="string", tabs=["Tab 1", "Tab 2"], content=["Content 1", "Content 2"]</code></li>
+                    <li class="mb-2"><strong>rating:</strong> <code>value="number", max="number", size="number(px)", color="tailwind-color-class", id="string(optional)"</code></li>
+                    <li class="mb-2"><strong>slider:</strong> <code>id="string", min="number", max="number", value="number", step="number", style="tailwind-classes"</code></li>
+                    <li class="mb-2"><strong>date-picker:</strong> <code>id="string", label="string", value="YYYY-MM-DD (optional)", style="tailwind-classes"</code></li>
+                    <li class="mb-2"><strong>time-picker:</strong> <code>id="string", label="string", value="HH:MM (optional)", style="tailwind-classes"</code></li>
+                    <li class="mb-2"><strong>color-picker:</strong> <code>id="string", label="string", value="#RRGGBB (optional)", style="tailwind-classes"</code></li>
+                    <li class="mb-2"><strong>qr-code:</strong> <code>text="string", size="number(px)", color="hex", background="hex", id="string(optional)"</code></li>
+                    <li class="mb-2"><strong>map:</strong> <code>query="location string", zoom="number", width="px|%", height="px|%", style="tailwind-classes", id="string(optional)"</code></li>
+                    <li class="mb-2"><strong>toast:</strong> <code>message="string", type="success|error|info|warning", duration="number(ms)"</code></li>
+                    <li class="mb-2"><strong>spinner:</strong> <code>size="number(px)", color="tailwind-color-class", id="string(optional)"</code></li>
                     <li class="mb-2"><strong>badge:</strong> <code>text="string", color="tailwind-color-class"</code></li>
                     <li class="mb-2"><strong>circular-progress:</strong> <code>value="number", max="number", size="number(px)", color="tailwind-color-class"</code></li>
                     <li class="mb-2"><strong>toggle:</strong> <code>id="string", label="string"</code></li>
@@ -375,7 +641,35 @@
                     <li class="mb-2"><strong>dropdown:</strong> <code>id="string", options=["option1", "option2"], label="string"</code></li>
                     <li class="mb-2"><strong>modal:</strong> <code>id="string", title="string", text="string"</code></li>
                     <li class="mb-2"><strong>button.modal:</strong> <code>text="string", modalId="string", style="tailwind-style-classes"</code></li>
+                    <li class="mb-2 font-bold mt-4">--- New Logic & Data Commands ---</li>
+                    <li class="mb-2"><strong>set:</strong> <code>key="string", value="string|number|boolean|array|object"</code> (stores in app state)</li>
+                    <li class="mb-2"><strong>get:</strong> <code>key="string", targetId="string"</code> (retrieves from state and sets element's textContent)</li>
+                    <li class="mb-2"><strong>if:</strong> <code>condition="expression (e.g., state.myVar == 'value')"</code> then commands, optionally <strong>else</strong> commands, and <strong>endif</strong></li>
                     <li class="mb-2"><strong>loop:</strong> <code>count="number"</code> followed by commands and <strong>endloop</strong></li>
+                    <li class="mb-2"><strong>log:</strong> <code>message="string"</code> (logs to console)</li>
+                    <li class="mb-2"><strong>copy:</strong> <code>text="string"</code> (copies to clipboard)</li>
+                    <li class="mb-2"><strong>fetch:</strong> <code>url="string", method="GET|POST", body="json_string (optional)", headers="json_string (optional)", targetId="string (optional)"</code></li>
+                    <li class="mb-2"><strong>clear:</strong> <code>id="string (optional)"</code> (clears content of an element or the whole output area)</li>
+                    <li class="mb-2"><strong>redirect:</strong> <code>url="string"</code></li>
+                    <li class="mb-2"><strong>print:</strong> <code>(no props)</code></li>
+                    <li class="mb-2"><strong>reload:</strong> <code>(no props)</code></li>
+                    <li class="mb-2"><strong>confirm:</strong> <code>message="string", onConfirm="flux commands", onCancel="flux commands"</code></li>
+                    <li class="mb-2"><strong>prompt:</strong> <code>message="string", placeholder="string", onInput="flux commands", id="string (optional)"</code></li>
+                    <li class="mb-2 font-bold mt-4">--- Firestore Commands (Requires Firebase Config) ---</li>
+                    <li class="mb-2"><strong>firestore.save:</strong> <code>collection="string", docId="string(optional)", data="json_string", public="true|false(optional)"</code></li>
+                    <li class="mb-2"><strong>firestore.load:</strong> <code>collection="string", docId="string", targetId="string", public="true|false(optional)"</code></li>
+                    <li class="mb-2"><strong>firestore.update:</strong> <code>collection="string", docId="string", data="json_string", public="true|false(optional)"</code></li>
+                    <li class="mb-2"><strong>firestore.delete:</strong> <code>collection="string", docId="string", public="true|false(optional)"</code></li>
+                    <li class="mb-2 font-bold mt-4">--- Generative AI Commands ---</li>
+                    <li class="mb-2"><strong>tts:</strong> <code>text="string", voice="string (optional)"</code></li>
+                    <li class="mb-2"><strong>image.generate:</strong> <code>prompt="string", targetId="string"</code></li>
+                    <li class="mb-2 font-bold mt-4">--- Event Handling Commands ---</li>
+                    <li class="mb-2"><strong>on.click:</strong> <code>id="string", commands="flux commands"</code></li>
+                    <li class="mb-2"><strong>on.change:</strong> <code>id="string", commands="flux commands"</code></li>
+                    <li class="mb-2 font-bold mt-4">--- Update Commands ---</li>
+                    <li class="mb-2"><strong>chart.update:</strong> <code>id="string", labels=["label1"], data=[10], title="string (optional)"</code></li>
+                    <li class="mb-2"><strong>progress.update:</strong> <code>id="string", value="number", label="string (optional)"</code></li>
+                    <li class="mb-2"><strong>circular-progress.update:</strong> <code>id="string", value="number", label="string (optional)"</code></li>
                 </ul>
             `;
             showCustomAlert(commandsList);
@@ -384,43 +678,45 @@
         // --- The Custom Language Parser ---
         const parseFluxCode = (codeString) => {
             const lines = codeString.split('\n');
-            const parsedCommands = [];
             let parsingError = null;
             let i = 0;
-        
-            const parseBlock = () => {
+            
+            const parseBlock = (terminators = ['endloop', 'endif', 'else']) => { // Added terminators
                 const blockCommands = [];
                 while (i < lines.length) {
                     const line = lines[i].trim();
+                    const originalLineIndex = i; // Store original line index for error reporting
                     i++;
-                    
+
                     if (line.startsWith('#') || line === '') {
                         continue;
                     }
-                    if (line === 'endloop') {
-                        return blockCommands;
+
+                    // Check if the current line is a terminator for the current block
+                    if (terminators.includes(line)) {
+                        return { commands: blockCommands, terminator: line };
                     }
 
                     const colonIndex = line.indexOf(':');
                     if (colonIndex === -1) {
-                        parsingError = `Syntax Error: Malformed command on line "${line}". Expected "type: key=value".`;
+                        parsingError = `Syntax Error on line ${originalLineIndex + 1}: Malformed command "${line}". Expected "type: key=value".`;
                         return null;
                     }
-        
+
                     const type = line.substring(0, colonIndex).trim();
                     const propsPart = line.substring(colonIndex + 1).trim();
-        
+
                     if (!type || !propsPart) {
-                        parsingError = `Syntax Error: Malformed command on line "${line}". Expected "type: key=value".`;
+                        parsingError = `Syntax Error on line ${originalLineIndex + 1}: Malformed command "${line}". Expected "type: key=value".`;
                         return null;
                     }
-        
+
                     const props = {};
-                    const parts = propsPart.split(/,(?![^[]*\])/);
+                    const parts = propsPart.split(/,(?![^[]*\])/); // Split by comma, but not inside square brackets
                     for (const part of parts) {
                         const [key, value] = part.split('=').map(s => s.trim());
                         if (!key || !value) { continue; }
-            
+
                         let cleanValue;
                         if (value.startsWith('"') && value.endsWith('"')) {
                             cleanValue = value.slice(1, -1);
@@ -428,36 +724,73 @@
                             try {
                                 cleanValue = JSON.parse(value);
                             } catch (e) {
-                                parsingError = `Syntax Error: Invalid JSON array format for "${key}" on line "${line}".`;
+                                parsingError = `Syntax Error on line ${originalLineIndex + 1}: Invalid JSON array format for "${key}" in "${line}".`;
                                 return null;
                             }
+                        } else if (value.startsWith('{') && value.endsWith('}')) {
+                            try {
+                                cleanValue = JSON.parse(value);
+                            } catch (e) {
+                                parsingError = `Syntax Error on line ${originalLineIndex + 1}: Invalid JSON object format for "${key}" in "${line}".`;
+                                return null;
+                            }
+                        }
+                        else if (value.toLowerCase() === 'true') {
+                            cleanValue = true;
+                        } else if (value.toLowerCase() === 'false') {
+                            cleanValue = false;
+                        } else if (!isNaN(Number(value)) && !isNaN(parseFloat(value))) { // Check for numbers
+                            cleanValue = Number(value);
                         } else {
-                            cleanValue = value;
+                            cleanValue = value; // Treat as string if not quoted, array, or boolean/number
                         }
                         props[key] = cleanValue;
                     }
                     
                     if (type === 'loop') {
-                        const loopBlock = parseBlock();
-                        if (parsingError) return null;
-                        blockCommands.push({ type, props, commands: loopBlock });
+                        const loopResult = parseBlock(['endloop']);
+                        if (parsingError) return null; // Propagate inner parsing error
+                        if (loopResult.terminator !== 'endloop') {
+                            parsingError = `Syntax Error on line ${originalLineIndex + 1}: 'loop' block not terminated with 'endloop'.`;
+                            return null;
+                        }
+                        blockCommands.push({ type, props, commands: loopResult.commands });
+                    } else if (type === 'if') {
+                        const ifBlockResult = parseBlock(['else', 'endif']);
+                        if (parsingError) return null; // Propagate inner parsing error
+                        const ifCommands = ifBlockResult.commands;
+                        let elseCommands = [];
+
+                        if (ifBlockResult.terminator === 'else') {
+                            const elseBlockResult = parseBlock(['endif']);
+                            if (parsingError) return null; // Propagate inner parsing error
+                            if (elseBlockResult.terminator !== 'endif') {
+                                parsingError = `Syntax Error on line ${originalLineIndex + 1}: 'else' block not terminated with 'endif'.`;
+                                return null;
+                            }
+                            elseCommands = elseBlockResult.commands;
+                        } else if (ifBlockResult.terminator !== 'endif') {
+                            parsingError = `Syntax Error on line ${originalLineIndex + 1}: 'if' block not terminated with 'endif'.`;
+                            return null;
+                        }
+                        blockCommands.push({ type, props, ifCommands, elseCommands });
                     } else {
                         blockCommands.push({ type, props });
                     }
                 }
-                return blockCommands;
+                return { commands: blockCommands, terminator: null }; // End of file reached
             };
 
-            const commands = parseBlock();
+            const result = parseBlock();
 
-            if (parsingError) {
-                error = parsingError;
+            if (result && result.terminator !== null) {
+                error = `Syntax Error: Unexpected '${result.terminator}' at end of file or unclosed block.`;
                 fluxCommands = [];
             } else {
-                error = null;
-                fluxCommands = commands;
+                fluxCommands = result.commands;
+                error = parsingError; // Propagate any parsing error
             }
-            return { commands: fluxCommands, error: parsingError };
+            return { commands: fluxCommands, error: error };
         };
 
         // --- Process a single command asynchronously ---
@@ -465,6 +798,18 @@
             const type = command?.type;
             const props = command?.props || {};
             let element;
+
+            // Helper to get Firestore document reference
+            const getFirestoreDocRef = (collectionName, docId, isPublic) => {
+                if (!window.db || !window.userId) {
+                    showToast('Firestore not initialized or user not authenticated.', 'error');
+                    return null;
+                }
+                const baseCollection = isPublic ?
+                    `artifacts/${window.appId}/public/data/${collectionName}` :
+                    `artifacts/${window.appId}/users/${window.userId}/${collectionName}`;
+                return docId ? doc(window.db, baseCollection, docId) : doc(collection(window.db, baseCollection));
+            };
 
             switch (type) {
                 case 'heading':
@@ -475,7 +820,7 @@
                     }
                     element = document.createElement(HeadingTag);
                     element.textContent = props.text;
-                    element.className = `font-bold ${props.color || 'text-gray-900'}`;
+                    element.className = `font-bold ${props.color || 'text-gray-900'} ${HeadingTag === 'h1' ? 'text-3xl' : HeadingTag === 'h2' ? 'text-2xl' : HeadingTag === 'h3' ? 'text-xl' : 'text-lg'}`;
                     if (props.id) {
                         element.id = props.id;
                     }
@@ -530,11 +875,11 @@
                         element.id = props.id;
                     }
                     if (props.onClick) {
-                        element.addEventListener('click', (event) => {
+                        element.addEventListener('click', async (event) => {
                             const originalText = event.target.textContent;
                             event.target.textContent = 'Loading...';
                             event.target.disabled = true;
-                            executeFluxCommand(props.onClick)
+                            await executeFluxCommand(props.onClick)
                                 .finally(() => {
                                     event.target.textContent = originalText;
                                     event.target.disabled = false;
@@ -600,26 +945,17 @@
                     }
                     break;
                 case 'alert':
-                    element = document.createElement('div');
                     let alertClasses = 'p-4 rounded-lg text-sm font-medium mt-4';
                     let alertType = props.type || 'info';
                     
                     switch(alertType) {
-                        case 'success':
-                            alertClasses += ' bg-green-100 text-green-700';
-                            break;
-                        case 'warning':
-                            alertClasses += ' bg-yellow-100 text-yellow-700';
-                            break;
-                        case 'error':
-                            alertClasses += ' bg-red-100 text-red-700';
-                            break;
-                        case 'info':
-                        default:
-                            alertClasses += ' bg-blue-100 text-blue-700';
-                            break;
+                        case 'success': alertClasses += ' bg-green-100 text-green-700'; break;
+                        case 'warning': alertClasses += ' bg-yellow-100 text-yellow-700'; break;
+                        case 'error': alertClasses += ' bg-red-100 text-red-700'; break;
+                        case 'info': default: alertClasses += ' bg-blue-100 text-blue-700'; break;
                     }
                     
+                    element = document.createElement('div');
                     element.className = alertClasses;
                     element.textContent = props.text || 'An alert message.';
                     break;
@@ -649,6 +985,23 @@
                         targetContainer.appendChild(label);
                     }
                     break;
+                case 'progress.update':
+                    const progressElement = document.getElementById(props.id);
+                    if (progressElement) {
+                        const progressBarToUpdate = progressElement.querySelector('div');
+                        const valueToUpdate = parseFloat(props.value) || 0;
+                        const maxToUpdate = parseFloat(progressElement.dataset.max) || 100; // Assuming max is stored as data-attribute
+                        const widthToUpdate = Math.min(100, (valueToUpdate / maxToUpdate) * 100);
+                        progressBarToUpdate.style.width = `${widthToUpdate}%`;
+
+                        const labelToUpdate = document.getElementById(`${props.id}-label`);
+                        if (labelToUpdate && props.label) {
+                            labelToUpdate.textContent = `${props.label}: ${valueToUpdate}%`;
+                        }
+                    } else {
+                        showToast(`Progress element with ID '${props.id}' not found.`, 'error');
+                    }
+                    break;
                 case 'link':
                     element = document.createElement('a');
                     element.textContent = props.text;
@@ -658,8 +1011,8 @@
                             showIframeView(props.url);
                         });
                     } else if (props.onClick) {
-                         element.addEventListener('click', () => {
-                            executeFluxCommand(props.onClick);
+                         element.addEventListener('click', async () => {
+                            await executeFluxCommand(props.onClick);
                          });
                     }
                     break;
@@ -673,338 +1026,257 @@
                     }
                     break;
                 case 'search':
-                    const query = props.query;
-                    const numQueries = parseInt(props.queries, 10);
-                    if (query && !isNaN(numQueries) && numQueries > 0) {
-                        const loadingDiv = document.createElement('div');
-                        loadingDiv.textContent = `Searching for "${query}" on Wikipedia...`;
-                        loadingDiv.className = 'text-center text-gray-500 mt-4';
-                        targetContainer.appendChild(loadingDiv);
-
-                        try {
-                            const apiUrl = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=${numQueries}&format=json&origin=*`;
-                            const response = await fetch(apiUrl);
-                            const searchResults = await response.json();
-                            
-                            loadingDiv.remove();
-
-                            if (searchResults && searchResults.length > 3 && searchResults[3].length > 0) {
-                                const titles = searchResults[1];
-                                const urls = searchResults[3];
-
-                                const ul = document.createElement('ul');
-                                ul.className = 'list-disc list-inside mt-4 space-y-2';
-
-                                for (let i = 0; i < urls.length; i++) {
-                                    const li = document.createElement('li');
-                                    const a = document.createElement('a');
-                                    a.href = urls[i];
-                                    a.textContent = titles[i];
-                                    a.target = "_blank";
-                                    a.className = 'text-indigo-600 hover:underline';
-                                    li.appendChild(a);
-                                    ul.appendChild(li);
-                                }
-                                targetContainer.appendChild(ul);
-                            } else {
-                                loadingDiv.textContent = `No results found for "${query}". Please try a different search term.`;
-                            }
-                        } catch (e) {
-                             loadingDiv.textContent = `An error occurred during the search: ${e.message}`;
-                             console.error(e);
-                        }
+                    const searchQuery = props.query;
+                    if (searchQuery) {
+                        showIframeView(`https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`);
                     } else {
                         element = document.createElement('div');
-                        element.textContent = `Syntax Error: search command requires a 'query' string and a 'queries' number.`;
-                        element.className = 'text-red-500';
-                    }
-                    break;
-                case 'show.image':
-                    const imagePrompt = props.text;
-                    const imageId = props.id;
-                    if (imagePrompt && imageId) {
-                        const loadingDiv = document.createElement('div');
-                        loadingDiv.textContent = `Generating image for "${imagePrompt}"...`;
-                        loadingDiv.className = 'text-center text-gray-500 mt-4';
-                        loadingDiv.id = `loading-${imageId}`;
-                        targetContainer.appendChild(loadingDiv);
-
-                        try {
-                            const payload = { instances: { prompt: imagePrompt }, parameters: { "sampleCount": 1} };
-                            const apiKey = "";
-                            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
-                            const response = await fetch(apiUrl, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(payload)
-                            });
-                            
-                            const result = await response.json();
-                            
-                            loadingDiv.remove();
-
-                            if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
-                                const base64Data = result.predictions[0].bytesBase64Encoded;
-                                const imageUrl = `data:image/png;base64,${base64Data}`;
-                                
-                                const img = document.createElement('img');
-                                img.src = imageUrl;
-                                img.id = imageId;
-                                img.alt = imagePrompt;
-                                img.className = 'mt-4 rounded-lg shadow-md max-w-full h-auto';
-                                
-                                targetContainer.appendChild(img);
-                            } else {
-                                const errorDiv = document.createElement('div');
-                                errorDiv.textContent = `Error generating image: No image data returned.`;
-                                errorDiv.className = 'text-red-500 mt-4';
-                                targetContainer.appendChild(errorDiv);
-                            }
-
-                        } catch (e) {
-                            loadingDiv.textContent = `An error occurred during image generation: ${e.message}`;
-                            console.error(e);
-                        }
-                    } else {
-                        element = document.createElement('div');
-                        element.textContent = `Syntax Error: 'show.image' command requires a 'text' string and an 'id' string.`;
+                        element.textContent = `Syntax Error: 'search' command requires a 'query' string.`;
                         element.className = 'text-red-500';
                     }
                     break;
                 case 'table':
-                    const headers = props.headers || [];
-                    const rows = props.rows || [];
-                    element = document.createElement('div');
-                    element.className = 'mt-4 overflow-x-auto rounded-lg shadow-md';
+                    element = document.createElement('table');
+                    element.className = `min-w-full divide-y divide-gray-200 mt-4 rounded-lg overflow-hidden shadow-md ${props.style || ''}`;
                     if (props.id) {
                         element.id = props.id;
                     }
 
-                    const table = document.createElement('table');
-                    table.className = 'min-w-full divide-y divide-gray-200';
+                    if (props.headers && Array.isArray(props.headers) && props.headers.length > 0) {
+                        const thead = document.createElement('thead');
+                        const headerRow = document.createElement('tr');
+                        props.headers.forEach(headerText => {
+                            const th = document.createElement('th');
+                            th.textContent = headerText;
+                            th.className = 'px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+                            headerRow.appendChild(th);
+                        });
+                        thead.appendChild(headerRow);
+                        element.appendChild(thead);
+                    }
 
-                    const thead = document.createElement('thead');
-                    thead.className = 'bg-gray-50';
-                    const headerRow = document.createElement('tr');
-                    headers.forEach(headerText => {
-                        const th = document.createElement('th');
-                        th.scope = 'col';
-                        th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
-                        th.textContent = headerText;
-                        headerRow.appendChild(th);
-                    });
-                    thead.appendChild(headerRow);
-                    table.appendChild(thead);
-
-                    const tbody = document.createElement('tbody');
-                    tbody.className = 'bg-white divide-y divide-gray-200';
-                    if (Array.isArray(rows)) {
-                        rows.forEach(rowData => {
-                            const dataRow = document.createElement('tr');
+                    if (props.rows && Array.isArray(props.rows) && props.rows.length > 0) {
+                        const tbody = document.createElement('tbody');
+                        tbody.className = 'bg-white divide-y divide-gray-200';
+                        props.rows.forEach(rowData => {
+                            const row = document.createElement('tr');
                             if (Array.isArray(rowData)) {
                                 rowData.forEach(cellData => {
                                     const td = document.createElement('td');
-                                    td.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-500';
                                     td.textContent = cellData;
-                                    dataRow.appendChild(td);
+                                    td.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-900';
+                                    row.appendChild(td);
                                 });
                             }
-                            tbody.appendChild(dataRow);
+                            tbody.appendChild(row);
                         });
+                        element.appendChild(tbody);
+                    } else {
+                        const tbody = document.createElement('tbody');
+                        const row = document.createElement('tr');
+                        const td = document.createElement('td');
+                        td.colSpan = props.headers ? props.headers.length : 1;
+                        td.textContent = 'No data available.';
+                        td.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center';
+                        row.appendChild(td);
+                        tbody.appendChild(row);
+                        element.appendChild(tbody);
                     }
-                    table.appendChild(tbody);
-                    element.appendChild(table);
                     break;
                 case 'carousel':
-                    const images = props.images || [];
+                    element = document.createElement('div');
+                    element.className = 'carousel-container mt-4';
+                    if (props.id) {
+                        element.id = props.id;
+                    }
+
+                    const slidesContainer = document.createElement('div');
+                    slidesContainer.className = 'carousel-slides';
+                    slidesContainer.style.transform = 'translateX(0%)'; // Initial state
+
+                    const images = Array.isArray(props.images) ? props.images : (props.images ? props.images.split(',') : []);
+
                     if (images.length === 0) {
-                        element = document.createElement('div');
-                        element.textContent = `Syntax Error: 'carousel' command requires an 'images' array with at least one URL.`;
-                        element.className = 'text-red-500';
-                    } else {
-                        const carouselContainer = document.createElement('div');
-                        carouselContainer.className = 'carousel-container mt-4';
-                        if (props.id) {
-                            carouselContainer.id = props.id;
-                        }
+                        element.textContent = 'No images provided for carousel.';
+                        element.className = 'text-red-500 mt-4';
+                        break;
+                    }
 
-                        const carouselSlides = document.createElement('div');
-                        carouselSlides.className = 'carousel-slides';
+                    images.forEach((src, index) => {
+                        const slide = document.createElement('div');
+                        slide.className = `carousel-slide ${index === 0 ? 'active' : ''}`;
+                        const img = document.createElement('img');
+                        img.src = src.trim();
+                        img.alt = `Carousel Image ${index + 1}`;
+                        img.onerror = () => img.src = `https://placehold.co/600x400/cccccc/333333?text=Image+Not+Found`; // Fallback
+                        slide.appendChild(img);
+                        slidesContainer.appendChild(slide);
+                    });
+                    element.appendChild(slidesContainer);
 
-                        images.forEach((image, index) => {
-                            const slide = document.createElement('div');
-                            slide.className = `carousel-slide ${index === 0 ? 'active' : ''}`;
-                            const img = document.createElement('img');
-                            img.src = image;
-                            img.alt = `Slide ${index + 1}`;
-                            img.onerror = () => img.src = `https://placehold.co/800x400/CCCCCC/333333?text=Image+Not+Found`;
-                            slide.appendChild(img);
-                            carouselSlides.appendChild(img);
-                        });
-                        carouselContainer.appendChild(carouselSlides);
-
+                    if (images.length > 1) {
                         const prevBtn = document.createElement('button');
                         prevBtn.className = 'carousel-btn carousel-prev';
                         prevBtn.innerHTML = '&#10094;';
-                        prevBtn.onclick = () => moveSlide(carouselContainer, -1);
-                        carouselContainer.appendChild(prevBtn);
+                        prevBtn.onclick = () => moveSlide(element.id, -1);
+                        element.appendChild(prevBtn);
 
                         const nextBtn = document.createElement('button');
                         nextBtn.className = 'carousel-btn carousel-next';
                         nextBtn.innerHTML = '&#10095;';
-                        nextBtn.onclick = () => moveSlide(carouselContainer, 1);
-                        carouselContainer.appendChild(nextBtn);
-
-                        element = carouselContainer;
+                        nextBtn.onclick = () => moveSlide(element.id, 1);
+                        element.appendChild(nextBtn);
                     }
                     break;
                 case 'chart':
-                    if (!props.type || !props.labels || !props.data) {
-                        element = document.createElement('div');
-                        element.textContent = `Syntax Error: 'chart' command requires 'type', 'labels', and 'data' props.`;
-                        element.className = 'text-red-500';
-                        break;
-                    }
-
                     element = document.createElement('div');
-                    element.className = 'chart-container';
+                    element.className = 'chart-container mt-4';
                     if (props.id) {
                         element.id = props.id;
                     }
                     const canvas = document.createElement('canvas');
                     element.appendChild(canvas);
-                    targetContainer.appendChild(element);
+
+                    const chartType = props.type || 'bar';
+                    const chartLabels = Array.isArray(props.labels) ? props.labels : [];
+                    const chartData = Array.isArray(props.data) ? props.data.map(Number) : [];
+                    const chartTitle = props.title || '';
 
                     const ctx = canvas.getContext('2d');
-                    
-                    const chartOptions = {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: props.type === 'pie'
-                            },
-                            title: {
-                                display: !!props.title,
-                                text: props.title,
-                                font: {
-                                    size: 16,
-                                    weight: 'bold'
-                                }
-                            }
-                        }
-                    };
-                    
-                    new Chart(ctx, {
-                        type: props.type,
+                    const newChart = new Chart(ctx, {
+                        type: chartType,
                         data: {
-                            labels: props.labels,
+                            labels: chartLabels,
                             datasets: [{
-                                label: 'Data',
-                                data: props.data,
+                                label: chartTitle,
+                                data: chartData,
                                 backgroundColor: [
-                                    'rgba(79, 70, 229, 0.8)',
-                                    'rgba(239, 68, 68, 0.8)',
-                                    'rgba(34, 197, 94, 0.8)',
-                                    'rgba(59, 130, 246, 0.8)',
-                                    'rgba(245, 158, 11, 0.8)'
+                                    'rgba(75, 192, 192, 0.6)', 'rgba(153, 102, 255, 0.6)', 'rgba(255, 159, 64, 0.6)',
+                                    'rgba(255, 99, 132, 0.6)', 'rgba(54, 162, 235, 0.6)', 'rgba(201, 203, 207, 0.6)'
                                 ],
                                 borderColor: [
-                                    'rgba(79, 70, 229, 1)',
-                                    'rgba(239, 68, 68, 1)',
-                                    'rgba(34, 197, 94, 1)',
-                                    'rgba(59, 130, 246, 1)',
-                                    'rgba(245, 158, 11, 1)'
+                                    'rgba(75, 192, 192, 1)', 'rgba(153, 102, 255, 1)', 'rgba(255, 159, 64, 1)',
+                                    'rgba(255, 99, 132, 1)', 'rgba(54, 162, 235, 1)', 'rgba(201, 203, 207, 1)'
                                 ],
                                 borderWidth: 1
                             }]
                         },
-                        options: chartOptions
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                title: {
+                                    display: chartTitle !== '',
+                                    text: chartTitle
+                                }
+                            }
+                        }
                     });
+                    // Store chart instance globally for updates
+                    if (props.id) {
+                        window.fluxCharts = window.fluxCharts || {};
+                        window.fluxCharts[props.id] = newChart;
+                    }
+                    break;
+                case 'chart.update':
+                    if (props.id && window.fluxCharts && window.fluxCharts[props.id]) {
+                        const chartToUpdate = window.fluxCharts[props.id];
+                        if (Array.isArray(props.labels)) {
+                            chartToUpdate.data.labels = props.labels;
+                        }
+                        if (Array.isArray(props.data)) {
+                            chartToUpdate.data.datasets[0].data = props.data.map(Number);
+                        }
+                        if (props.title) {
+                            chartToUpdate.options.plugins.title.text = props.title;
+                        }
+                        chartToUpdate.update();
+                    } else {
+                        showToast(`Chart with ID '${props.id}' not found for update.`, 'error');
+                    }
                     break;
                 case 'form':
                     element = document.createElement('form');
-                    element.className = `space-y-4 my-4`;
+                    element.className = `bg-white p-6 rounded-xl shadow-lg mt-4 ${props.style || ''}`;
                     if (props.id) {
                         element.id = props.id;
                     }
-                    element.onsubmit = (e) => e.preventDefault();
+                    element.addEventListener('submit', (e) => e.preventDefault()); // Prevent default form submission
                     break;
                 case 'submit':
-                    const form = document.getElementById(props.formId);
-                    if (!form) {
-                        element = document.createElement('div');
-                        element.textContent = `Error: 'submit' button's 'formId' not found.`;
-                        element.className = 'text-red-500 mt-4';
-                        break;
-                    }
                     element = document.createElement('button');
-                    element.textContent = props.text;
-                    element.type = 'submit';
-                    element.className = `px-6 py-3 font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md ${props.style}`;
-                    
-                    if (props.onClick) {
-                         element.addEventListener('click', async (event) => {
-                             const originalText = event.target.textContent;
-                             event.target.textContent = 'Submitting...';
-                             event.target.disabled = true;
+                    element.textContent = props.text || 'Submit';
+                    element.className = `px-6 py-3 mt-4 font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md bg-indigo-600 text-white ${props.style || ''}`;
+                    if (props.formId) {
+                        element.type = 'submit'; // Make it a submit button for the form
+                        element.addEventListener('click', async (event) => {
+                            const form = document.getElementById(props.formId);
+                            if (form) {
+                                const formData = {};
+                                Array.from(form.elements).forEach(el => {
+                                    if (el.id && el.value && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) {
+                                        formData[el.id] = el.value;
+                                    } else if (el.type === 'checkbox' && el.name) {
+                                        if (!formData[el.name]) formData[el.name] = [];
+                                        if (el.checked) formData[el.name].push(el.value);
+                                    } else if (el.type === 'radio' && el.name && el.checked) {
+                                        formData[el.name] = el.value;
+                                    }
+                                });
+                                // Store form data in state for access by onClick commands
+                                state[`form_${props.formId}_data`] = formData;
+                                console.log(`Form '${props.formId}' data submitted:`, formData);
 
-                             const formData = {};
-                             const inputs = form.querySelectorAll('input, textarea');
-                             inputs.forEach(input => {
-                                 if (input.id) {
-                                     formData[input.id] = input.value;
-                                 }
-                             });
-                            
-                             showCustomAlert(`Form Data: <pre>${JSON.stringify(formData, null, 2)}</pre>`);
-                             
-                             event.target.textContent = originalText;
-                             event.target.disabled = false;
-                         });
+                                if (props.onClick) {
+                                    const originalText = event.target.textContent;
+                                    event.target.textContent = 'Submitting...';
+                                    event.target.disabled = true;
+                                    await executeFluxCommand(props.onClick)
+                                        .finally(() => {
+                                            event.target.textContent = originalText;
+                                            event.target.disabled = false;
+                                        });
+                                }
+                            } else {
+                                showToast(`Form with ID '${props.formId}' not found.`, 'error');
+                            }
+                        });
                     }
                     break;
-                case 'store':
-                    if (!window.db || !window.userId) {
-                        showCustomAlert("Cloud services are not available or user is not authenticated.");
-                        return;
-                    }
-                    if (!props.id || !props.value) {
-                        showCustomAlert("Error: 'store' command requires both an 'id' and a 'value'.");
-                        return;
-                    }
-
-                    try {
-                        const dataRef = doc(window.db, `artifacts/${window.appId}/users/${window.userId}/data`, props.id);
-                        await setDoc(dataRef, { value: props.value });
-                        showCustomAlert(`Successfully stored data with ID: <strong>${props.id}</strong>`);
-                    } catch (e) {
-                        showCustomAlert(`Error storing data: ${e.message}`);
-                        console.error("Error storing data:", e);
+                case 'store': // Deprecated, use set
+                    console.warn("The 'store' command is deprecated. Please use 'set' instead.");
+                    if (props.id && props.value !== undefined) {
+                        state[props.id] = props.value;
+                        showToast(`Stored '${props.value}' in state['${props.id}']`, 'success');
+                    } else {
+                        showToast("Error: 'store' command requires 'id' and 'value'.", 'error');
                     }
                     break;
-                case 'load':
-                    if (!window.db || !window.userId) {
-                        showCustomAlert("Cloud services are not available or user is not authenticated.");
-                        return;
+                case 'set':
+                    if (props.key && props.value !== undefined) {
+                        state[props.key] = props.value;
+                        showToast(`Set state['${props.key}'] to '${props.value}'`, 'success');
+                    } else {
+                        showToast("Error: 'set' command requires 'key' and 'value'.", 'error');
                     }
-                    if (!props.id) {
-                        showCustomAlert("Error: 'load' command requires an 'id'.");
-                        return;
+                    break;
+                case 'load': // Deprecated, use get
+                    console.warn("The 'load' command is deprecated. Please use 'get' instead.");
+                    if (props.id && document.getElementById(props.id)) {
+                        const loadedValue = state[props.id] || '';
+                        document.getElementById(props.id).textContent = loadedValue;
+                        showToast(`Loaded state['${props.id}'] to element '${props.id}'`, 'success');
+                    } else {
+                        showToast("Error: 'load' command requires 'id' and a target element with that ID.", 'error');
                     }
-
-                    try {
-                        const dataRef = doc(window.db, `artifacts/${window.appId}/users/${window.userId}/data`, props.id);
-                        const dataSnap = await getDoc(dataRef);
-                        if (dataSnap.exists()) {
-                            const data = dataSnap.data();
-                            showCustomAlert(`Loaded data for <strong>${props.id}</strong>: <pre>${data.value}</pre>`);
-                        } else {
-                            showCustomAlert(`No data found for ID: <strong>${props.id}</strong>`);
-                        }
-                    } catch (e) {
-                        showCustomAlert(`Error loading data: ${e.message}`);
-                        console.error("Error loading data:", e);
+                    break;
+                case 'get':
+                    if (props.key && props.targetId && document.getElementById(props.targetId)) {
+                        const loadedValue = state[props.key] || '';
+                        document.getElementById(props.targetId).textContent = loadedValue;
+                        showToast(`Got state['${props.key}'] and displayed in element '${props.targetId}'`, 'success');
+                    } else {
+                        showToast("Error: 'get' command requires 'key' and 'targetId' with a valid element.", 'error');
                     }
                     break;
                 case 'badge':
@@ -1013,353 +1285,1049 @@
                     element.className = `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${props.color || 'bg-gray-100 text-gray-800'}`;
                     break;
                 case 'circular-progress':
-                    const progressValue = parseFloat(props.value) || 0;
-                    const progressMax = parseFloat(props.max) || 100;
-                    const progressSize = parseFloat(props.size) || 100;
-                    const radius = (progressSize - 10) / 2;
-                    const circumference = 2 * Math.PI * radius;
-                    const offset = circumference - (progressValue / progressMax) * circumference;
-                    
                     element = document.createElement('div');
-                    element.className = 'circular-progress';
-                    element.style.width = `${progressSize}px`;
-                    element.style.height = `${progressSize}px`;
-                    
-                    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-                    svg.setAttribute("width", progressSize);
-                    svg.setAttribute("height", progressSize);
-                    
-                    const circleBg = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                    circleBg.setAttribute("cx", progressSize / 2);
-                    circleBg.setAttribute("cy", progressSize / 2);
-                    circleBg.setAttribute("r", radius);
-                    circleBg.setAttribute("stroke-width", "5");
-                    circleBg.setAttribute("stroke", "rgba(229, 231, 235, 1)");
-                    circleBg.setAttribute("fill", "transparent");
-                    
-                    const circleFg = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                    circleFg.setAttribute("cx", progressSize / 2);
-                    circleFg.setAttribute("cy", progressSize / 2);
-                    circleFg.setAttribute("r", radius);
-                    circleFg.setAttribute("stroke-width", "5");
-                    circleFg.setAttribute("stroke", props.color || 'rgba(79, 70, 229, 1)');
-                    circleFg.setAttribute("fill", "transparent");
-                    circleFg.setAttribute("stroke-dasharray", circumference);
-                    circleFg.setAttribute("stroke-dashoffset", offset);
-                    
-                    svg.appendChild(circleBg);
-                    svg.appendChild(circleFg);
-                    element.appendChild(svg);
-                    
-                    const text = document.createElement('span');
-                    text.textContent = `${Math.round(progressValue / progressMax * 100)}%`;
-                    text.className = 'absolute text-sm font-semibold text-gray-800';
-                    element.appendChild(text);
+                    element.className = `circular-progress mt-4 ${props.style || ''}`;
+                    if (props.id) {
+                        element.id = props.id;
+                    }
+                    const cpSize = props.size || 100;
+                    const cpValue = parseFloat(props.value) || 0;
+                    const cpMax = parseFloat(props.max) || 100;
+                    const cpColor = props.color || 'stroke-indigo-600';
+                    const radius = (cpSize / 2) - 5; // 5 for stroke width
+                    const circumference = 2 * Math.PI * radius;
+                    const offset = circumference - (cpValue / cpMax) * circumference;
 
+                    element.innerHTML = `
+                        <svg width="${cpSize}" height="${cpSize}" viewBox="0 0 ${cpSize} ${cpSize}">
+                            <circle class="text-gray-300" stroke="currentColor" stroke-width="4" fill="transparent" r="${radius}" cx="${cpSize / 2}" cy="${cpSize / 2}"></circle>
+                            <circle class="${cpColor}" stroke="currentColor" stroke-width="4" fill="transparent" r="${radius}" cx="${cpSize / 2}" cy="${cpSize / 2}"
+                                style="stroke-dasharray: ${circumference}; stroke-dashoffset: ${offset};"></circle>
+                        </svg>
+                        <span class="absolute text-sm font-medium text-gray-700">${Math.round((cpValue / cpMax) * 100)}%</span>
+                    `;
+                    if (props.label) {
+                        const label = document.createElement('p');
+                        label.textContent = props.label;
+                        label.className = `mt-2 text-sm text-gray-600`;
+                        if (props.id) {
+                            label.id = `${props.id}-label`;
+                        }
+                        targetContainer.appendChild(label);
+                    }
+                    break;
+                case 'circular-progress.update':
+                    const cpElement = document.getElementById(props.id);
+                    if (cpElement) {
+                        const cpValueToUpdate = parseFloat(props.value) || 0;
+                        const svgCircle = cpElement.querySelector('circle:last-child');
+                        const textSpan = cpElement.querySelector('span');
+
+                        if (svgCircle && textSpan) {
+                            const cpSize = parseFloat(cpElement.style.width) || 100;
+                            const cpMax = parseFloat(cpElement.dataset.max) || 100; // Assuming max is stored as data-attribute
+                            const radius = (cpSize / 2) - 5;
+                            const circumference = 2 * Math.PI * radius;
+                            const offset = circumference - (cpValueToUpdate / cpMax) * circumference;
+
+                            svgCircle.style.strokeDashoffset = offset;
+                            textSpan.textContent = `${Math.round((cpValueToUpdate / cpMax) * 100)}%`;
+
+                            const labelToUpdate = document.getElementById(`${props.id}-label`);
+                            if (labelToUpdate && props.label) {
+                                labelToUpdate.textContent = props.label;
+                            }
+                        }
+                    } else {
+                        showToast(`Circular progress element with ID '${props.id}' not found.`, 'error');
+                    }
                     break;
                 case 'toggle':
                     element = document.createElement('label');
-                    element.className = `flex items-center cursor-pointer mt-4`;
-                    
-                    const toggleInput = document.createElement('input');
-                    toggleInput.type = 'checkbox';
-                    toggleInput.id = props.id;
-                    toggleInput.className = 'sr-only peer';
-                    element.appendChild(toggleInput);
-                    
-                    const toggleDiv = document.createElement('div');
-                    toggleDiv.className = `relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:border-gray-300 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600`;
-                    element.appendChild(toggleDiv);
-
-                    if (props.label) {
-                        const toggleLabel = document.createElement('span');
-                        toggleLabel.className = 'ml-3 text-sm font-medium text-gray-900';
-                        toggleLabel.textContent = props.label;
-                        element.appendChild(toggleLabel);
+                    element.className = 'flex items-center cursor-pointer mt-4';
+                    if (props.id) {
+                        element.id = props.id;
+                    }
+                    element.innerHTML = `
+                        <div class="relative">
+                            <input type="checkbox" class="sr-only peer" ${props.checked ? 'checked' : ''}>
+                            <div class="block bg-gray-600 w-14 h-8 rounded-full peer-checked:bg-indigo-600 transition-colors"></div>
+                            <div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform peer-checked:translate-x-full"></div>
+                        </div>
+                        <div class="ml-3 text-gray-700 font-medium">${props.label || 'Toggle'}</div>
+                    `;
+                    const toggleInput = element.querySelector('input[type="checkbox"]');
+                    if (props.onClick) {
+                        toggleInput.addEventListener('change', async () => {
+                            await executeFluxCommand(props.onClick);
+                        });
                     }
                     break;
                 case 'radio-group':
-                    const radioGroupName = props.name;
-                    const radioOptions = props.options || [];
-
-                    if (!radioGroupName || radioOptions.length === 0) {
-                        element = document.createElement('div');
-                        element.textContent = `Syntax Error: 'radio-group' requires a 'name' and an 'options' array.`;
-                        element.className = 'text-red-500';
-                        break;
-                    }
-
                     element = document.createElement('div');
-                    element.className = 'space-y-2 mt-4';
-                    
-                    radioOptions.forEach(optionText => {
-                        const radioContainer = document.createElement('div');
-                        radioContainer.className = 'flex items-center';
-                        
+                    element.className = 'mt-4';
+                    if (props.name) {
+                        element.dataset.name = props.name; // Store name for easy access
+                    }
+                    if (props.label) {
+                        const label = document.createElement('label');
+                        label.textContent = props.label;
+                        label.className = 'block text-sm font-medium text-gray-700 mb-2';
+                        element.appendChild(label);
+                    }
+                    (Array.isArray(props.options) ? props.options : []).forEach(option => {
+                        const radioDiv = document.createElement('div');
+                        radioDiv.className = 'flex items-center mb-2';
                         const radioInput = document.createElement('input');
                         radioInput.type = 'radio';
-                        radioInput.name = radioGroupName;
-                        radioInput.value = optionText;
-                        radioInput.className = 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300';
-                        radioContainer.appendChild(radioInput);
-                        
+                        radioInput.name = props.name || 'radioGroup';
+                        radioInput.value = option;
+                        radioInput.className = 'focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300';
+                        if (props.checked === option) {
+                            radioInput.checked = true;
+                        }
                         const radioLabel = document.createElement('label');
-                        radioLabel.className = 'ml-3 block text-sm font-medium text-gray-700';
-                        radioLabel.textContent = optionText;
-                        radioContainer.appendChild(radioLabel);
-
-                        element.appendChild(radioContainer);
+                        radioLabel.textContent = option;
+                        radioLabel.className = 'ml-2 block text-sm text-gray-900';
+                        radioDiv.appendChild(radioInput);
+                        radioDiv.appendChild(radioLabel);
+                        element.appendChild(radioDiv);
                     });
                     break;
                 case 'checkbox-group':
-                    const checkboxGroupName = props.name;
-                    const checkboxOptions = props.options || [];
-
-                    if (!checkboxGroupName || checkboxOptions.length === 0) {
-                        element = document.createElement('div');
-                        element.textContent = `Syntax Error: 'checkbox-group' requires a 'name' and an 'options' array.`;
-                        element.className = 'text-red-500';
-                        break;
-                    }
-                    
                     element = document.createElement('div');
-                    element.className = 'space-y-2 mt-4';
-
-                    checkboxOptions.forEach(optionText => {
-                        const checkboxContainer = document.createElement('div');
-                        checkboxContainer.className = 'flex items-center';
-                        
+                    element.className = 'mt-4';
+                    if (props.name) {
+                        element.dataset.name = props.name;
+                    }
+                    if (props.label) {
+                        const label = document.createElement('label');
+                        label.textContent = props.label;
+                        label.className = 'block text-sm font-medium text-gray-700 mb-2';
+                        element.appendChild(label);
+                    }
+                    (Array.isArray(props.options) ? props.options : []).forEach(option => {
+                        const checkboxDiv = document.createElement('div');
+                        checkboxDiv.className = 'flex items-center mb-2';
                         const checkboxInput = document.createElement('input');
                         checkboxInput.type = 'checkbox';
-                        checkboxInput.name = checkboxGroupName;
-                        checkboxInput.value = optionText;
-                        checkboxInput.className = 'h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500';
-                        checkboxContainer.appendChild(checkboxInput);
-
+                        checkboxInput.name = props.name || 'checkboxGroup';
+                        checkboxInput.value = option;
+                        checkboxInput.className = 'focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded';
+                        if (Array.isArray(props.checked) && props.checked.includes(option)) {
+                            checkboxInput.checked = true;
+                        }
                         const checkboxLabel = document.createElement('label');
-                        checkboxLabel.className = 'ml-3 block text-sm font-medium text-gray-700';
-                        checkboxLabel.textContent = optionText;
-                        checkboxContainer.appendChild(checkboxLabel);
-
-                        element.appendChild(checkboxContainer);
+                        checkboxLabel.textContent = option;
+                        checkboxLabel.className = 'ml-2 block text-sm text-gray-900';
+                        checkboxDiv.appendChild(checkboxInput);
+                        checkboxDiv.appendChild(checkboxLabel);
+                        element.appendChild(checkboxDiv);
                     });
                     break;
                 case 'dropdown':
-                    const dropdownOptions = props.options || [];
-
-                    if (!props.id || dropdownOptions.length === 0) {
-                        element = document.createElement('div');
-                        element.textContent = `Syntax Error: 'dropdown' requires an 'id' and an 'options' array.`;
-                        element.className = 'text-red-500';
-                        break;
-                    }
-
                     element = document.createElement('div');
                     element.className = 'mt-4';
-
+                    if (props.id) {
+                        element.id = props.id;
+                    }
                     if (props.label) {
                         const label = document.createElement('label');
-                        label.htmlFor = props.id;
-                        label.className = 'block text-sm font-medium text-gray-700';
                         label.textContent = props.label;
+                        label.htmlFor = props.id;
+                        label.className = 'block text-sm font-medium text-gray-700 mb-1';
                         element.appendChild(label);
                     }
-                    
                     const select = document.createElement('select');
                     select.id = props.id;
-                    select.className = 'mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md';
-                    
-                    dropdownOptions.forEach(optionText => {
+                    select.className = `mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md ${props.style || ''}`;
+                    (Array.isArray(props.options) ? props.options : []).forEach(optionText => {
                         const option = document.createElement('option');
                         option.value = optionText;
                         option.textContent = optionText;
                         select.appendChild(option);
                     });
+                    if (props.value) {
+                        select.value = props.value;
+                    }
+                    if (props.onChange) {
+                        select.addEventListener('change', async () => {
+                            await executeFluxCommand(props.onChange);
+                        });
+                    }
                     element.appendChild(select);
                     break;
                 case 'modal':
-                    const modalElement = document.createElement('div');
-                    modalElement.id = `modal-${props.id}`;
-                    modalElement.className = 'flux-modal-overlay hidden';
-
-                    const modalContent = document.createElement('div');
-                    modalContent.className = 'flux-modal-content';
-
-                    const modalTitle = document.createElement('h3');
-                    modalTitle.textContent = props.title;
-                    modalTitle.className = 'text-xl font-bold mb-2 text-gray-800';
-                    modalContent.appendChild(modalTitle);
-
-                    const modalText = document.createElement('p');
-                    modalText.textContent = props.text;
-                    modalText.className = 'text-gray-600 mb-4';
-                    modalContent.appendChild(modalText);
-
-                    const modalCloseBtn = document.createElement('button');
-                    modalCloseBtn.textContent = 'Close';
-                    modalCloseBtn.className = 'px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition';
-                    modalCloseBtn.onclick = () => modalElement.classList.add('hidden');
-                    modalContent.appendChild(modalCloseBtn);
-                    
-                    modalElement.appendChild(modalContent);
-                    targetContainer.appendChild(modalElement);
-                    break;
+                    element = document.createElement('div');
+                    element.className = 'flux-modal-overlay hidden';
+                    if (props.id) {
+                        element.id = props.id;
+                        activeModals[props.id] = element; // Store reference to modal
+                    }
+                    element.innerHTML = `
+                        <div class="flux-modal-content">
+                            <h3 class="text-xl font-bold mb-4">${props.title || 'Modal Title'}</h3>
+                            <p>${props.text || 'Modal content goes here.'}</p>
+                            <button class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition mt-4" onclick="document.getElementById('${props.id}').classList.add('hidden')">Close</button>
+                        </div>
+                    `;
+                    // Modals are appended to body, not targetContainer, to ensure they overlay everything
+                    document.body.appendChild(element);
+                    return; // Do not append to targetContainer
                 case 'button.modal':
                     element = document.createElement('button');
                     element.textContent = props.text;
-                    element.className = `px-6 py-3 mt-4 font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md ${props.style}`;
-                    
-                    if (props.modalId) {
+                    element.className = `px-6 py-3 mt-4 font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md bg-blue-500 text-white ${props.style || ''}`;
+                    if (props.modalId && activeModals[props.modalId]) {
                         element.addEventListener('click', () => {
-                            const modal = document.getElementById(`modal-${props.modalId}`);
-                            if (modal) {
-                                modal.classList.remove('hidden');
-                            } else {
-                                showCustomAlert(`Error: Modal with ID '${props.modalId}' not found.`);
-                            }
+                            activeModals[props.modalId].classList.remove('hidden');
                         });
-                    } else {
-                        element.addEventListener('click', () => {
-                            showCustomAlert(`Error: 'button.modal' requires a 'modalId'.`);
-                        });
+                    } else if (props.modalId) {
+                        showToast(`Modal with ID '${props.modalId}' not found. Define the modal first.`, 'error');
                     }
                     break;
                 case 'loop':
-                    const count = parseInt(props.count, 10);
-                    if (!isNaN(count) && count > 0 && Array.isArray(command.commands)) {
-                        for (let i = 0; i < count; i++) {
-                            for (const loopCommand of command.commands) {
-                                await processCommand(loopCommand, targetContainer);
-                            }
+                    const loopCount = parseInt(props.count);
+                    if (!isNaN(loopCount) && loopCount > 0 && command.commands) {
+                        for (let j = 0; j < loopCount; j++) {
+                            // Pass a new temporary container for each loop iteration if needed,
+                            // or append directly to the current targetContainer
+                            await executeFluxCommands(command.commands, targetContainer);
                         }
+                    } else {
+                        showToast("Error: 'loop' command requires a positive 'count' and nested commands.", 'error');
+                    }
+                    return; // Loop handles appending its own children
+                case 'if':
+                    const condition = props.condition;
+                    if (condition === undefined) {
+                        showToast("Error: 'if' command requires a 'condition'.", 'error');
+                        return;
+                    }
+                    const conditionResult = safeEvaluateCondition(condition);
+                    if (conditionResult && command.ifCommands) {
+                        await executeFluxCommands(command.ifCommands, targetContainer);
+                    } else if (!conditionResult && command.elseCommands) {
+                        await executeFluxCommands(command.elseCommands, targetContainer);
+                    }
+                    return; // If/else handles appending its own children
+                case 'log':
+                    console.log('Flux Log:', props.message);
+                    showToast(`Logged: ${props.message}`, 'info');
+                    break;
+                case 'copy':
+                    if (props.text) {
+                        try {
+                            // Fallback for document.execCommand('copy') as navigator.clipboard.writeText() might not work in iframe
+                            const textarea = document.createElement('textarea');
+                            textarea.value = props.text;
+                            document.body.appendChild(textarea);
+                            textarea.select();
+                            document.execCommand('copy');
+                            document.body.removeChild(textarea);
+                            showToast('Text copied to clipboard!', 'success');
+                        } catch (err) {
+                            console.error('Failed to copy text: ', err);
+                            showToast('Failed to copy text.', 'error');
+                        }
+                    } else {
+                        showToast("Error: 'copy' command requires 'text'.", 'error');
                     }
                     break;
+                case 'fetch':
+                    if (!props.url) {
+                        showToast("Error: 'fetch' command requires a 'url'.", 'error');
+                        return;
+                    }
+                    try {
+                        const options = {
+                            method: props.method || 'GET',
+                            headers: props.headers || {}
+                        };
+                        if (props.body) {
+                            options.body = JSON.stringify(props.body);
+                            options.headers['Content-Type'] = options.headers['Content-Type'] || 'application/json';
+                        }
+                        const response = await fetch(props.url, options);
+                        const data = await response.json();
+                        console.log('Fetch response:', data);
+                        if (props.targetId && document.getElementById(props.targetId)) {
+                            document.getElementById(props.targetId).textContent = JSON.stringify(data, null, 2);
+                            showToast(`Fetched data to element '${props.targetId}'`, 'success');
+                        } else {
+                            showToast('Fetch successful! Check console for data.', 'success');
+                        }
+                        // Store fetch result in state
+                        state[`fetch_result_${props.url.replace(/[^a-zA-Z0-9]/g, '_')}`] = data;
+                    } catch (err) {
+                        console.error('Fetch error:', err);
+                        showToast(`Fetch failed: ${err.message}`, 'error');
+                    }
+                    break;
+                case 'clear':
+                    if (props.id) {
+                        const elementToClear = document.getElementById(props.id);
+                        if (elementToClear) {
+                            elementToClear.innerHTML = '';
+                            showToast(`Cleared element '${props.id}'.`, 'success');
+                        } else {
+                            showToast(`Element with ID '${props.id}' not found for clearing.`, 'error');
+                        }
+                    } else {
+                        // Clear the main dynamic output container
+                        dynamicOutputContainer.innerHTML = '';
+                        dynamicOutputContainer.classList.add('hidden');
+                        showToast('Cleared all dynamic output.', 'success');
+                    }
+                    break;
+                case 'redirect':
+                    if (props.url) {
+                        window.location.href = props.url;
+                    } else {
+                        showToast("Error: 'redirect' command requires a 'url'.", 'error');
+                    }
+                    break;
+                case 'print':
+                    window.print();
+                    break;
+                case 'reload':
+                    window.location.reload();
+                    break;
+                case 'confirm':
+                    if (props.message) {
+                        const result = await showCustomConfirm(props.message);
+                        if (result && props.onConfirm) {
+                            await executeFluxCommand(props.onConfirm);
+                        } else if (!result && props.onCancel) {
+                            await executeFluxCommand(props.onCancel);
+                        }
+                    } else {
+                        showToast("Error: 'confirm' command requires a 'message'.", 'error');
+                    }
+                    break;
+                case 'prompt':
+                    if (props.message) {
+                        const result = await showCustomPrompt(props.message, props.placeholder);
+                        if (result !== null && props.onInput) {
+                            // Store the prompt result in state for the onInput command to use
+                            state[props.id || 'prompt_result'] = result;
+                            await executeFluxCommand(props.onInput);
+                        }
+                    } else {
+                        showToast("Error: 'prompt' command requires a 'message'.", 'error');
+                    }
+                    break;
+                case 'firestore.save':
+                    if (!window.db || !window.userId) {
+                        showToast('Firestore not initialized or user not authenticated.', 'error');
+                        break;
+                    }
+                    if (!props.collection || !props.data) {
+                        showToast("Error: 'firestore.save' requires 'collection' and 'data'.", 'error');
+                        break;
+                    }
+                    try {
+                        const docRef = getFirestoreDocRef(props.collection, props.docId, props.public);
+                        await setDoc(docRef, props.data);
+                        showToast(`Data saved to Firestore in collection '${props.collection}' with ID '${docRef.id}'.`, 'success');
+                        console.log("Firestore Save successful:", docRef.id, props.data);
+                    } catch (e) {
+                        console.error("Error saving to Firestore:", e);
+                        showToast(`Error saving to Firestore: ${e.message}`, 'error');
+                    }
+                    break;
+                case 'firestore.load':
+                    if (!window.db || !window.userId) {
+                        showToast('Firestore not initialized or user not authenticated.', 'error');
+                        break;
+                    }
+                    if (!props.collection || !props.docId || !props.targetId) {
+                        showToast("Error: 'firestore.load' requires 'collection', 'docId', and 'targetId'.", 'error');
+                        break;
+                    }
+                    try {
+                        const docRef = getFirestoreDocRef(props.collection, props.docId, props.public);
+                        const docSnap = await getDoc(docRef);
+                        if (docSnap.exists()) {
+                            const data = docSnap.data();
+                            const targetElement = document.getElementById(props.targetId);
+                            if (targetElement) {
+                                targetElement.textContent = JSON.stringify(data, null, 2);
+                                showToast(`Data loaded from Firestore to element '${props.targetId}'.`, 'success');
+                                console.log("Firestore Load successful:", data);
+                                // Store loaded data in state
+                                state[`firestore_load_${props.collection}_${props.docId}`] = data;
+                            } else {
+                                showToast(`Target element with ID '${props.targetId}' not found.`, 'error');
+                            }
+                        } else {
+                            showToast(`No such document found in collection '${props.collection}' with ID '${props.docId}'.`, 'warning');
+                        }
+                    } catch (e) {
+                        console.error("Error loading from Firestore:", e);
+                        showToast(`Error loading from Firestore: ${e.message}`, 'error');
+                    }
+                    break;
+                case 'firestore.update':
+                    if (!window.db || !window.userId) {
+                        showToast('Firestore not initialized or user not authenticated.', 'error');
+                        break;
+                    }
+                    if (!props.collection || !props.docId || !props.data) {
+                        showToast("Error: 'firestore.update' requires 'collection', 'docId', and 'data'.", 'error');
+                        break;
+                    }
+                    try {
+                        const docRef = getFirestoreDocRef(props.collection, props.docId, props.public);
+                        await updateDoc(docRef, props.data);
+                        showToast(`Document updated in collection '${props.collection}' with ID '${props.docId}'.`, 'success');
+                        console.log("Firestore Update successful:", props.docId, props.data);
+                    } catch (e) {
+                        console.error("Error updating Firestore:", e);
+                        showToast(`Error updating Firestore: ${e.message}`, 'error');
+                    }
+                    break;
+                case 'firestore.delete':
+                    if (!window.db || !window.userId) {
+                        showToast('Firestore not initialized or user not authenticated.', 'error');
+                        break;
+                    }
+                    if (!props.collection || !props.docId) {
+                        showToast("Error: 'firestore.delete' requires 'collection' and 'docId'.", 'error');
+                        break;
+                    }
+                    try {
+                        const docRef = getFirestoreDocRef(props.collection, props.docId, props.public);
+                        await deleteDoc(docRef);
+                        showToast(`Document deleted from collection '${props.collection}' with ID '${props.docId}'.`, 'success');
+                        console.log("Firestore Delete successful:", props.docId);
+                    } catch (e) {
+                        console.error("Error deleting from Firestore:", e);
+                        showToast(`Error deleting from Firestore: ${e.message}`, 'error');
+                    }
+                    break;
+                case 'tts':
+                    if (!props.text) {
+                        showToast("Error: 'tts' command requires 'text'.", 'error');
+                        break;
+                    }
+                    try {
+                        const payload = {
+                            contents: [{
+                                parts: [{ text: props.text }]
+                            }],
+                            generationConfig: {
+                                responseModalities: ["AUDIO"],
+                                speechConfig: {
+                                    voiceConfig: {
+                                        prebuiltVoiceConfig: { voiceName: props.voice || "Kore" } // Default voice
+                                    }
+                                }
+                            },
+                            model: "gemini-2.5-flash-preview-tts"
+                        };
+                        const apiKey = ""; // Canvas will automatically provide it
+                        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+
+                        let response;
+                        let retries = 0;
+                        const maxRetries = 5;
+                        const baseDelay = 1000; // 1 second
+
+                        while (retries < maxRetries) {
+                            try {
+                                response = await fetch(apiUrl, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(payload)
+                                });
+                                if (response.ok) break; // Success, break loop
+                                if (response.status === 429) { // Too Many Requests
+                                    retries++;
+                                    const delay = baseDelay * Math.pow(2, retries - 1);
+                                    await new Promise(res => setTimeout(res, delay));
+                                } else {
+                                    throw new Error(`HTTP error! status: ${response.status}`);
+                                }
+                            } catch (error) {
+                                console.error("TTS fetch attempt failed:", error);
+                                retries++;
+                                const delay = baseDelay * Math.pow(2, retries - 1);
+                                await new Promise(res => setTimeout(res, delay));
+                            }
+                        }
+
+                        if (!response || !response.ok) {
+                            throw new Error("Failed to fetch TTS audio after multiple retries.");
+                        }
+
+                        const result = await response.json();
+                        const part = result?.candidates?.[0]?.content?.parts?.[0];
+                        const audioData = part?.inlineData?.data;
+                        const mimeType = part?.inlineData?.mimeType;
+
+                        if (audioData && mimeType && mimeType.startsWith("audio/L16")) {
+                            // Helper functions for PCM to WAV conversion
+                            const base64ToArrayBuffer = (base64) => {
+                                const binaryString = window.atob(base64);
+                                const len = binaryString.length;
+                                const bytes = new Uint8Array(len);
+                                for (let k = 0; k < len; k++) {
+                                    bytes[k] = binaryString.charCodeAt(k);
+                                }
+                                return bytes.buffer;
+                            };
+
+                            const pcmToWav = (pcmData, sampleRate) => {
+                                const pcm16 = new Int16Array(pcmData);
+                                const dataLength = pcm16.length * 2;
+                                const buffer = new ArrayBuffer(44 + dataLength);
+                                const view = new DataView(buffer);
+
+                                // WAV header
+                                writeString(view, 0, 'RIFF'); // ChunkID
+                                view.setUint32(4, 36 + dataLength, true); // ChunkSize
+                                writeString(view, 8, 'WAVE'); // Format
+                                writeString(view, 12, 'fmt '); // Subchunk1ID
+                                view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
+                                view.setUint16(20, 1, true); // AudioFormat (1 for PCM)
+                                view.setUint16(22, 1, true); // NumChannels (1 for mono)
+                                view.setUint32(24, sampleRate, true); // SampleRate
+                                view.setUint32(28, sampleRate * 2, true); // ByteRate (SampleRate * NumChannels * BitsPerSample/8)
+                                view.setUint16(32, 2, true); // BlockAlign (NumChannels * BitsPerSample/8)
+                                view.setUint16(34, 16, true); // BitsPerSample
+                                writeString(view, 36, 'data'); // Subchunk2ID
+                                view.setUint32(40, dataLength, true); // Subchunk2Size
+
+                                // Write PCM data
+                                let offset = 44;
+                                for (let k = 0; k < pcm16.length; k++, offset += 2) {
+                                    view.setInt16(offset, pcm16[k], true);
+                                }
+
+                                return new Blob([view], { type: 'audio/wav' });
+                            };
+
+                            const writeString = (view, offset, string) => {
+                                for (let k = 0; k < string.length; k++) {
+                                    view.setUint8(offset + k, string.charCodeAt(k));
+                                }
+                            };
+
+                            const sampleRateMatch = mimeType.match(/rate=(\d+)/);
+                            const sampleRate = sampleRateMatch ? parseInt(sampleRateMatch[1], 10) : 16000; // Default to 16kHz if not found
+
+                            const pcmDataBuffer = base64ToArrayBuffer(audioData);
+                            const pcm16 = new Int16Array(pcmDataBuffer);
+                            const wavBlob = pcmToWav(pcm16, sampleRate);
+                            const audioUrl = URL.createObjectURL(wavBlob);
+
+                            const audio = new Audio(audioUrl);
+                            audio.play();
+                            showToast('Playing audio...', 'info');
+                        } else {
+                            showToast('Failed to get valid audio data from TTS.', 'error');
+                            console.error('TTS response missing audio data or invalid mimeType:', result);
+                        }
+                    } catch (e) {
+                        console.error('TTS error:', e);
+                        showToast(`TTS failed: ${e.message}`, 'error');
+                    }
+                    break;
+                case 'image.generate':
+                    if (!props.prompt) {
+                        showToast("Error: 'image.generate' command requires a 'prompt'.", 'error');
+                        break;
+                    }
+                    if (!props.targetId) {
+                        showToast("Error: 'image.generate' command requires a 'targetId' to display the image.", 'error');
+                        break;
+                    }
+                    const imageTargetElement = document.getElementById(props.targetId);
+                    if (!imageTargetElement) {
+                        showToast(`Error: Target element with ID '${props.targetId}' not found.`, 'error');
+                        break;
+                    }
+
+                    // Show a spinner while loading
+                    const spinnerElement = document.createElement('div');
+                    spinnerElement.className = 'spinner mx-auto my-4';
+                    spinnerElement.style.width = '50px';
+                    spinnerElement.style.height = '50px';
+                    spinnerElement.style.borderLeftColor = '#4F46E5';
+                    imageTargetElement.innerHTML = ''; // Clear previous content
+                    imageTargetElement.appendChild(spinnerElement);
+                    showToast('Generating image...', 'info', 5000);
+
+                    try {
+                        const payload = { instances: { prompt: props.prompt }, parameters: { "sampleCount": 1 } };
+                        const apiKey = ""; // Canvas will automatically provide it
+                        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+
+                        let response;
+                        let retries = 0;
+                        const maxRetries = 5;
+                        const baseDelay = 1000; // 1 second
+
+                        while (retries < maxRetries) {
+                            try {
+                                response = await fetch(apiUrl, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(payload)
+                                });
+                                if (response.ok) break; // Success, break loop
+                                if (response.status === 429) { // Too Many Requests
+                                    retries++;
+                                    const delay = baseDelay * Math.pow(2, retries - 1);
+                                    await new Promise(res => setTimeout(res, delay));
+                                } else {
+                                    throw new Error(`HTTP error! status: ${response.status}`);
+                                }
+                            } catch (error) {
+                                console.error("Image generation fetch attempt failed:", error);
+                                retries++;
+                                const delay = baseDelay * Math.pow(2, retries - 1);
+                                await new Promise(res => setTimeout(res, delay));
+                            }
+                        }
+
+                        if (!response || !response.ok) {
+                            throw new Error("Failed to generate image after multiple retries.");
+                        }
+
+                        const result = await response.json();
+                        const base64Data = result?.predictions?.[0]?.bytesBase64Encoded;
+
+                        if (base64Data) {
+                            const imageUrl = `data:image/png;base64,${base64Data}`;
+                            imageTargetElement.innerHTML = ''; // Clear spinner
+                            const imgElement = document.createElement('img');
+                            imgElement.src = imageUrl;
+                            imgElement.alt = props.prompt;
+                            imgElement.className = 'w-full h-auto rounded-lg shadow-md mt-4';
+                            imageTargetElement.appendChild(imgElement);
+                            showToast('Image generated successfully!', 'success');
+                        } else {
+                            imageTargetElement.innerHTML = '<p class="text-red-500">Failed to generate image. No data received.</p>';
+                            showToast('Failed to generate image.', 'error');
+                            console.error('Image generation response missing data:', result);
+                        }
+                    } catch (e) {
+                        imageTargetElement.innerHTML = `<p class="text-red-500">Error generating image: ${e.message}</p>`;
+                        console.error('Image generation error:', e);
+                        showToast(`Image generation failed: ${e.message}`, 'error');
+                    }
+                    break;
+                case 'image':
+                    element = document.createElement('img');
+                    element.src = props.src;
+                    element.alt = props.alt || 'Image';
+                    element.className = `mt-4 rounded-lg shadow-md ${props.style || ''}`;
+                    if (props.width) element.style.width = props.width;
+                    if (props.height) element.style.height = props.height;
+                    if (props.id) element.id = props.id;
+                    element.onerror = () => element.src = `https://placehold.co/${props.width || '600'}x${props.height || '400'}/cccccc/333333?text=Image+Not+Found`;
+                    break;
+                case 'video':
+                    element = document.createElement('video');
+                    element.src = props.src;
+                    element.controls = props.controls !== false; // Default to true
+                    element.autoplay = props.autoplay === true;
+                    element.loop = props.loop === true;
+                    element.muted = props.muted === true;
+                    element.className = `mt-4 rounded-lg shadow-md ${props.style || ''}`;
+                    if (props.width) element.style.width = props.width;
+                    if (props.height) element.style.height = props.height;
+                    if (props.id) element.id = props.id;
+                    element.onerror = () => showToast(`Failed to load video: ${props.src}`, 'error');
+                    break;
+                case 'audio':
+                    element = document.createElement('audio');
+                    element.src = props.src;
+                    element.controls = props.controls !== false; // Default to true
+                    element.autoplay = props.autoplay === true;
+                    element.loop = props.loop === true;
+                    element.muted = props.muted === true;
+                    element.className = `mt-4 ${props.style || ''}`;
+                    if (props.id) element.id = props.id;
+                    element.onerror = () => showToast(`Failed to load audio: ${props.src}`, 'error');
+                    break;
+                case 'iframe.html':
+                    if (props.content) {
+                        showIframeView(null, props.content);
+                    } else {
+                        element = document.createElement('div');
+                        element.textContent = `Syntax Error: 'iframe.html' command requires 'content' string.`;
+                        element.className = 'text-red-500';
+                    }
+                    break;
+                case 'codeblock':
+                    element = document.createElement('pre');
+                    const code = document.createElement('code');
+                    code.textContent = props.code || '';
+                    code.className = `language-${props.lang || 'plaintext'}`; // For syntax highlighting (if a library like Prism.js were included)
+                    element.appendChild(code);
+                    element.className = `bg-gray-800 text-white p-4 rounded-lg overflow-x-auto text-sm font-mono mt-4 ${props.style || ''}`;
+                    if (props.id) element.id = props.id;
+                    break;
+                case 'grid':
+                    element = document.createElement('div');
+                    const columns = props.columns || 2;
+                    const gap = props.gap || 4;
+                    element.className = `grid grid-cols-${columns} gap-${gap} mt-4 ${props.style || ''}`;
+                    if (props.id) element.id = props.id;
+                    break;
+                case 'flex':
+                    element = document.createElement('div');
+                    const direction = props.direction === 'col' ? 'flex-col' : 'flex-row';
+                    const justify = props.justify ? `justify-${props.justify}` : '';
+                    const align = props.align ? `items-${props.align}` : '';
+                    element.className = `flex ${direction} ${justify} ${align} mt-4 ${props.style || ''}`;
+                    if (props.id) element.id = props.id;
+                    break;
+                case 'accordion':
+                    element = document.createElement('div');
+                    element.className = `accordion-item border border-gray-200 rounded-lg overflow-hidden mt-4 ${props.id || ''}`;
+                    if (props.id) element.id = props.id;
+
+                    const header = document.createElement('div');
+                    header.className = 'accordion-header';
+                    header.innerHTML = `
+                        <h4 class="font-medium text-gray-800">${props.title || 'Accordion Title'}</h4>
+                        <svg class="accordion-icon w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    `;
+                    const content = document.createElement('div');
+                    content.className = 'accordion-content';
+                    content.innerHTML = `<p class="text-gray-700">${props.content || 'Accordion content.'}</p>`;
+
+                    header.addEventListener('click', () => {
+                        element.classList.toggle('active');
+                    });
+                    element.appendChild(header);
+                    element.appendChild(content);
+                    break;
+                case 'tabs':
+                    element = document.createElement('div');
+                    element.className = `w-full mt-4 bg-white rounded-lg shadow-md ${props.style || ''}`;
+                    if (props.id) element.id = props.id;
+
+                    const tabButtonsContainer = document.createElement('div');
+                    tabButtonsContainer.className = 'tab-buttons';
+                    element.appendChild(tabButtonsContainer);
+
+                    const tabContentContainer = document.createElement('div');
+                    tabContentContainer.className = 'tab-content';
+                    element.appendChild(tabContentContainer);
+
+                    const tabs = Array.isArray(props.tabs) ? props.tabs : [];
+                    const contents = Array.isArray(props.content) ? props.content : [];
+
+                    tabs.forEach((tabTitle, index) => {
+                        const button = document.createElement('button');
+                        button.className = `tab-button ${index === 0 ? 'active' : ''}`;
+                        button.textContent = tabTitle;
+                        button.dataset.tabIndex = index;
+                        tabButtonsContainer.appendChild(button);
+
+                        const pane = document.createElement('div');
+                        pane.className = `tab-pane ${index === 0 ? 'active' : ''}`;
+                        pane.innerHTML = contents[index] || ''; // Directly insert HTML content
+                        tabContentContainer.appendChild(pane);
+
+                        button.addEventListener('click', () => {
+                            // Deactivate all buttons and panes
+                            tabButtonsContainer.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                            tabContentContainer.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+                            // Activate clicked button and corresponding pane
+                            button.classList.add('active');
+                            pane.classList.add('active');
+                        });
+                    });
+                    break;
+                case 'rating':
+                    element = document.createElement('div');
+                    element.className = `flex items-center mt-4 ${props.style || ''}`;
+                    if (props.id) element.id = props.id;
+
+                    const ratingValue = parseFloat(props.value) || 0;
+                    const ratingMax = parseFloat(props.max) || 5;
+                    const starSize = props.size || 24; // px
+                    const starColor = props.color || 'text-yellow-400';
+
+                    for (let j = 1; j <= ratingMax; j++) {
+                        const star = document.createElement('span');
+                        star.innerHTML = `
+                            <svg class="w-${starSize/4} h-${starSize/4} ${starColor} ${j <= ratingValue ? 'fill-current' : 'fill-transparent stroke-current stroke-1'}" viewBox="0 0 24 24">
+                                <path d="M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.48 8.279L12 18.896l-7.416 3.917 1.48-8.279-6.064-5.828 8.332-1.151z"/>
+                            </svg>
+                        `;
+                        element.appendChild(star);
+                    }
+                    break;
+                case 'slider':
+                    element = document.createElement('div');
+                    element.className = `mt-4 ${props.style || ''}`;
+                    if (props.id) element.id = props.id;
+
+                    if (props.label) {
+                        const label = document.createElement('label');
+                        label.textContent = props.label;
+                        label.htmlFor = props.id;
+                        label.className = 'block text-sm font-medium text-gray-700 mb-1';
+                        element.appendChild(label);
+                    }
+
+                    const sliderInput = document.createElement('input');
+                    sliderInput.type = 'range';
+                    sliderInput.min = props.min !== undefined ? props.min : 0;
+                    sliderInput.max = props.max !== undefined ? props.max : 100;
+                    sliderInput.value = props.value !== undefined ? props.value : (props.min !== undefined ? props.min : 0);
+                    sliderInput.step = props.step !== undefined ? props.step : 1;
+                    sliderInput.className = 'w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600';
+                    sliderInput.id = props.id;
+                    element.appendChild(sliderInput);
+
+                    const sliderValueDisplay = document.createElement('span');
+                    sliderValueDisplay.className = 'block text-sm text-gray-600 mt-1';
+                    sliderValueDisplay.textContent = sliderInput.value;
+                    element.appendChild(sliderValueDisplay);
+
+                    sliderInput.addEventListener('input', () => {
+                        sliderValueDisplay.textContent = sliderInput.value;
+                    });
+                    break;
+                case 'date-picker':
+                    element = document.createElement('div');
+                    element.className = `mt-4 ${props.style || ''}`;
+                    if (props.id) element.id = props.id;
+
+                    if (props.label) {
+                        const label = document.createElement('label');
+                        label.textContent = props.label;
+                        label.htmlFor = props.id;
+                        label.className = 'block text-sm font-medium text-gray-700 mb-1';
+                        element.appendChild(label);
+                    }
+
+                    const dateInput = document.createElement('input');
+                    dateInput.type = 'date';
+                    dateInput.id = props.id;
+                    dateInput.value = props.value || '';
+                    dateInput.className = 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm';
+                    element.appendChild(dateInput);
+                    break;
+                case 'time-picker':
+                    element = document.createElement('div');
+                    element.className = `mt-4 ${props.style || ''}`;
+                    if (props.id) element.id = props.id;
+
+                    if (props.label) {
+                        const label = document.createElement('label');
+                        label.textContent = props.label;
+                        label.htmlFor = props.id;
+                        label.className = 'block text-sm font-medium text-gray-700 mb-1';
+                        element.appendChild(label);
+                    }
+
+                    const timeInput = document.createElement('input');
+                    timeInput.type = 'time';
+                    timeInput.id = props.id;
+                    timeInput.value = props.value || '';
+                    timeInput.className = 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm';
+                    element.appendChild(timeInput);
+                    break;
+                case 'color-picker':
+                    element = document.createElement('div');
+                    element.className = `mt-4 ${props.style || ''}`;
+                    if (props.id) element.id = props.id;
+
+                    if (props.label) {
+                        const label = document.createElement('label');
+                        label.textContent = props.label;
+                        label.htmlFor = props.id;
+                        label.className = 'block text-sm font-medium text-gray-700 mb-1';
+                        element.appendChild(label);
+                    }
+
+                    const colorInput = document.createElement('input');
+                    colorInput.type = 'color';
+                    colorInput.id = props.id;
+                    colorInput.value = props.value || '#000000';
+                    colorInput.className = 'mt-1 block w-full h-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500';
+                    element.appendChild(colorInput);
+                    break;
+                case 'qr-code':
+                    element = document.createElement('div');
+                    element.className = `flex justify-center items-center mt-4 ${props.style || ''}`;
+                    if (props.id) element.id = props.id;
+
+                    const qrText = props.text || 'Flux QR Code';
+                    const qrSize = props.size || 128;
+                    const qrColor = props.color || '#000000'; // Default black
+                    const qrBackground = props.background || '#FFFFFF'; // Default white
+
+                    // Simple SVG QR code generation (not a full library, but functional for basic QR)
+                    const createQRCodeSVG = (text, size, color, background) => {
+                        const cellSize = size / 21; // QR code version 1 is 21x21 modules
+                        let svg = `<svg width="${size}" height="${size}" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg" style="background-color:${background};">`;
+                        // This is a very basic placeholder. A real QR code library is complex.
+                        // For a functional QR code, a library like qrcode.js or similar would be needed.
+                        // Here, I'm just creating a simple pattern for demonstration.
+                        // This will NOT generate a scannable QR code.
+                        // To make it scannable, a proper QR encoding algorithm is required.
+                        // For the purpose of this demo, I'll just draw a simple pattern.
+                        // A more robust solution would involve using a library like qrcode.js (not directly available in this setup without import)
+                        // Or generating a data URI from a canvas element.
+
+                        // Placeholder for a proper QR code
+                        // This is just a visual representation, not a functional QR code generator.
+                        // A real implementation would involve a complex algorithm or a dedicated library.
+                        svg += `<rect x="0" y="0" width="21" height="21" fill="${background}"/>`;
+                        svg += `<rect x="1" y="1" width="7" height="7" fill="${color}"/>`;
+                        svg += `<rect x="13" y="1" width="7" height="7" fill="${color}"/>`;
+                        svg += `<rect x="1" y="13" width="7" height="7" fill="${color}"/>`;
+                        svg += `<rect x="9" y="9" width="3" height="3" fill="${color}"/>`;
+                        svg += `<text x="10.5" y="10.5" font-size="2" text-anchor="middle" dominant-baseline="middle" fill="${background}">${qrText.substring(0,1)}</text>`;
+                        svg += `</svg>`;
+                        return svg;
+                    };
+                    
+                    // Note: This QR code generation is a placeholder for visual demonstration.
+                    // It does NOT produce a scannable QR code.
+                    // For a functional QR code, a proper library or backend service would be required.
+                    element.innerHTML = createQRCodeSVG(qrText, qrSize, qrColor, qrBackground);
+                    showToast('Note: QR code generation is a visual placeholder, not functional.', 'warning', 5000);
+                    break;
+                case 'map':
+                    element = document.createElement('div');
+                    element.className = `mt-4 rounded-lg overflow-hidden shadow-md ${props.style || ''}`;
+                    if (props.id) element.id = props.id;
+
+                    const mapQuery = props.query || 'New York, USA';
+                    const mapZoom = props.zoom || 12;
+                    const mapWidth = props.width || '100%';
+                    const mapHeight = props.height || '400px';
+
+                    element.innerHTML = `
+                        <iframe
+                            width="${mapWidth}"
+                            height="${mapHeight}"
+                            frameborder="0" style="border:0"
+                            src="https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=${mapZoom}&output=embed"
+                            allowfullscreen>
+                        </iframe>
+                    `;
+                    break;
+                case 'toast':
+                    showToast(props.message, props.type, props.duration);
+                    return; // Toast is handled by showToast function, no element to append
+                case 'spinner':
+                    element = document.createElement('div');
+                    const spinnerSize = props.size || 40;
+                    const spinnerColor = props.color || 'border-indigo-600';
+                    element.className = `spinner mx-auto my-4 ${spinnerColor}`;
+                    element.style.width = `${spinnerSize}px`;
+                    element.style.height = `${spinnerSize}px`;
+                    element.style.borderLeftColor = spinnerColor.replace('border-', ''); // Extract color
+                    if (props.id) element.id = props.id;
+                    break;
+                case 'on.click':
+                    const clickElement = document.getElementById(props.id);
+                    if (clickElement && props.commands) {
+                        clickElement.addEventListener('click', async () => {
+                            await executeFluxCommand(props.commands);
+                        });
+                        showToast(`Attached click listener to '${props.id}'.`, 'info');
+                    } else {
+                        showToast(`Error: 'on.click' requires a valid 'id' and 'commands'.`, 'error');
+                    }
+                    return; // Event listeners don't create elements to append
+                case 'on.change':
+                    const changeElement = document.getElementById(props.id);
+                    if (changeElement && props.commands) {
+                        changeElement.addEventListener('change', async () => {
+                            await executeFluxCommand(props.commands);
+                        });
+                        showToast(`Attached change listener to '${props.id}'.`, 'info');
+                    } else {
+                        showToast(`Error: 'on.change' requires a valid 'id' and 'commands'.`, 'error');
+                    }
+                    return; // Event listeners don't create elements to append
                 default:
-                    return;
+                    console.warn(`Unknown command type: ${type}`);
+                    showToast(`Unknown command: ${type}`, 'error');
+                    return; // Don't append anything for unknown commands
             }
+
             if (element) {
                 targetContainer.appendChild(element);
             }
         };
 
-        const moveSlide = (carousel, direction) => {
-            const slides = carousel.querySelectorAll('.carousel-slide');
-            const totalSlides = slides.length;
-            let currentSlide = 0;
-            slides.forEach((slide, index) => {
-                if (slide.classList.contains('active')) {
-                    currentSlide = index;
-                    slide.classList.remove('active');
-                }
-            });
-
-            let newSlide = (currentSlide + direction + totalSlides) % totalSlides;
-            slides[newSlide].classList.add('active');
+        // --- Execute a list of Flux commands ---
+        const executeFluxCommands = async (commands, targetContainer) => {
+            dynamicOutputContainer.classList.remove('hidden'); // Ensure dynamic output is visible
+            for (const command of commands) {
+                await processCommand(command, targetContainer);
+            }
         };
-        
-        // --- Core Execution Logic ---
-        const executeFluxCommand = async (commandString) => {
-            dynamicOutputContainer.innerHTML = '';
-            dynamicOutputContainer.classList.remove('hidden');
-            const { commands, error } = parseFluxCode(commandString);
+
+        // --- Carousel Navigation ---
+        const moveSlide = (carouselId, direction) => {
+            const carousel = document.getElementById(carouselId);
+            if (!carousel) return;
+
+            const slides = Array.from(carousel.querySelectorAll('.carousel-slide'));
+            let currentIndex = slides.findIndex(slide => slide.classList.contains('active'));
             
-            if (error) {
-                showCustomAlert(error);
+            slides[currentIndex].classList.remove('active');
+            slides[currentIndex].style.display = 'none'; // Ensure it's hidden
+
+            currentIndex = (currentIndex + direction + slides.length) % slides.length;
+            
+            slides[currentIndex].classList.add('active');
+            slides[currentIndex].style.display = 'block'; // Ensure it's shown
+        };
+
+        // --- Main Render Function ---
+        const renderFluxApp = async () => {
+            showMainAppView(); // Always start with the main app view
+            dynamicOutputContainer.innerHTML = ''; // Clear previous output
+            errorContainer.classList.add('hidden'); // Hide any previous errors
+            errorText.textContent = '';
+
+            const { commands, error: parseError } = parseFluxCode(editor.value);
+            
+            if (parseError) {
+                errorText.textContent = parseError;
+                errorContainer.classList.remove('hidden');
                 return;
             }
 
-            for (const command of commands) {
-                await processCommand(command, dynamicOutputContainer);
+            if (commands.length === 0) {
+                dynamicOutputContainer.innerHTML = '<p class="text-gray-500">No commands to render. Enter Flux code in the editor.</p>';
+                dynamicOutputContainer.classList.remove('hidden');
+                return;
             }
+
+            await executeFluxCommands(commands, dynamicOutputContainer);
         };
-        
-        // --- Render the initial state of the app ---
-        const renderFluxApp = async () => {
-            const code = editor.value;
-            outputContainer.innerHTML = '';
-            dynamicOutputContainer.innerHTML = '';
-            dynamicOutputContainer.classList.add('hidden');
-            
-            const { commands, error } = parseFluxCode(code);
-            
-            if (error) {
-                errorText.textContent = error;
-                errorContainer.classList.remove('hidden');
-            } else {
-                errorContainer.classList.add('hidden');
-                let currentFormElement = null;
-                for (const command of commands) {
-                    if (command.type === 'form') {
-                        currentFormElement = document.createElement('form');
-                        currentFormElement.className = `space-y-4 my-4`;
-                        if (command.props.id) {
-                            currentFormElement.id = command.props.id;
-                        }
-                        currentFormElement.onsubmit = (e) => e.preventDefault();
-                        outputContainer.appendChild(currentFormElement);
-                        await processCommand(command, outputContainer);
-                    } else if (currentFormElement && (command.type === 'input' || command.type === 'textarea')) {
-                        await processCommand(command, currentFormElement);
-                    } else {
-                        await processCommand(command, outputContainer);
-                        currentFormElement = null;
-                    }
-                }
-            }
-        };
-        
-        // --- Event Listener for the editor input ---
+
+        // --- Event Listeners ---
         editor.addEventListener('input', renderFluxApp);
         commandsListBtn.addEventListener('click', showCommandsList);
 
-        // --- Example Code to pre-populate editor ---
-        const exampleCode = `
-heading: text="Welcome to the Flux Editor", size="h1", color="text-indigo-600"
-paragraph: text="Start writing your own Flux commands in the editor on the left. The output will appear here.", color="text-gray-700"
-card: title="Interactive Elements", text="Use the button command to create interactive components.", style="bg-indigo-50"
-button: text="Say Hello", style="bg-indigo-600 text-white hover:bg-indigo-700", onClick="alert: text='Hello there!', type='success'"
-heading: text="Animated Progress Bar", size="h3", color="text-indigo-600"
-paragraph: text="This animated progress bar can be used to show task progress.", color="text-gray-600"
-progress: id="task-progress", value="50", max="100", label="Task Completion"
-heading: text="Powerful Commands Showcase", size="h3", color="text-indigo-600"
-
-chart: type="bar", labels=["Red", "Blue", "Yellow", "Green"], data=[12, 19, 3, 5], title="Sample Bar Chart"
-
-paragraph: text="Use forms to collect data from your users. The submit button will display the collected data in an alert.", color="text-gray-600"
-form: id="my-first-form"
-input: id="name", placeholder="Enter your name"
-input: id="email", placeholder="Enter your email"
-submit: formId="my-first-form", text="Submit Form", style="bg-indigo-600 text-white hover:bg-indigo-700"
-heading: text="Some Useful Commands", size="h3", color="text-indigo-600"
-list: title="Key Commands", items=["heading", "paragraph", "button", "link", "iframe", "show.image", "search", "chart", "form", "submit"], listStyle="bulleted"
-heading: text="Cloud Storage with Firestore", size="h3", color="text-indigo-600"
-paragraph: text="Store and retrieve data from the cloud securely. Your data is private and linked to your user ID.", color="text-gray-600"
-button: text="Store a Message", style="bg-green-600 text-white hover:bg-green-700", onClick="store: id='message', value='This is a secret message stored in the cloud!'"
-button: text="Load the Message", style="bg-blue-600 text-white hover:bg-blue-700", onClick="load: id='message'"
-heading: text="New UI Commands", size="h2", color="text-teal-600"
-paragraph: text="These new commands allow for more dynamic and flexible UI components.", color="text-gray-600"
-
-badge: text="New Feature", color="bg-teal-100 text-teal-800"
-badge: text="Beta", color="bg-blue-100 text-blue-800"
-circular-progress: value="75", max="100", size="80", color="stroke-teal-500"
-progress: id="progress-bar-2", value="50", max="100", label="Secondary Task"
-
-toggle: id="notifications-toggle", label="Enable Notifications"
-radio-group: name="theme", options=["Light", "Dark", "System"]
-checkbox-group: name="features", options=["Persistence", "API Access", "Real-time"]
-dropdown: id="country-select", label="Select a Country", options=["USA", "Canada", "Mexico"]
-
-modal: id="info-modal", title="Important Information", text="This is a modal window triggered by a button. It provides a way to display extra content without navigating away."
-button.modal: text="Show Info Modal", modalId="info-modal", style="bg-teal-600 text-white hover:bg-teal-700"
-heading: text="New Loops Command", size="h2", color="text-purple-600"
-paragraph: text="The new 'loop' command can be used to generate repetitive content easily.", color="text-gray-600"
-list: title="Generated List Items", listStyle="bulleted"
-loop: count="3"
-paragraph: text="This is a list item generated in a loop.", color="text-purple-700"
-endloop
-`;
-        editor.value = exampleCode;
-        renderFluxApp();
+        // Initial render on page load if there's pre-filled code
+        document.addEventListener('DOMContentLoaded', () => {
+            if (editor.value.trim() !== '') {
+                renderFluxApp();
+            } else {
+                dynamicOutputContainer.innerHTML = '<p class="text-gray-500">Enter Flux code in the editor to see results.</p>';
+                dynamicOutputContainer.classList.remove('hidden');
+            }
+        });
 
     </script>
 </body>
