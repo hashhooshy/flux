@@ -5,7 +5,7 @@
 ## 3 - node js
 ## 4 - next js
 
-5 - scala, python, koltin, c#, java, swift and more
+5 - scala, python, koltin, c#, java, swift and more such as php
 
 6- make it able to create desktops
 ## READ THIS TOO!
