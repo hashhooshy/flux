@@ -11,57 +11,11 @@
     <!-- qrcode.js CDN for functional QR code generation -->
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
-    <!-- Firebase SDKs for Cloud Firestore and Authentication -->
-    <script type="module">
-        // Import the functions you need from the SDKs
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
-
-        // Global variables for Firebase access
-        window.firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        window.initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        window.appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-        // Wait for DOM to be ready before initializing Firebase
-        document.addEventListener('DOMContentLoaded', async () => {
-            if (Object.keys(window.firebaseConfig).length > 0) {
-                const app = initializeApp(window.firebaseConfig);
-                window.db = getFirestore(app);
-                window.auth = getAuth(app);
-                window.storage = getStorage(app);
-            
-                try {
-                    if (window.initialAuthToken) {
-                        await signInWithCustomToken(window.auth, window.initialAuthToken);
-                    } else {
-                        await signInAnonymously(window.auth);
-                    }
-                } catch (error) {
-                    console.error("Firebase authentication error:", error);
-                }
-
-                // Listen for auth state changes to update the UI
-                onAuthStateChanged(window.auth, (user) => {
-                    if (user) {
-                        console.log("User is signed in with UID:", user.uid);
-                        window.userId = user.uid;
-                        document.getElementById('user-id-display').textContent = `User ID: ${user.uid}`;
-                        if (window.renderFluxApp) { // Ensure renderFluxApp is defined before calling
-                            window.renderFluxApp(); 
-                        }
-                    } else {
-                        console.log("User is signed out.");
-                        window.userId = null;
-                        document.getElementById('user-id-display').textContent = 'Not signed in';
-                    }
-                });
-            } else {
-                console.warn("Firebase config not available. Cloud features will be disabled.");
-            }
-        });
-    </script>
+    <!--
+        Removed Firebase SDKs and initialization from the main script.
+        The app will no longer automatically authenticate a user.
+        You can add Firebase back manually as needed.
+    -->
     <style>
         /* General styling for a nice, clean look */
         body {
@@ -261,8 +215,8 @@
             pointer-events: auto; /* Re-enable pointer events for the toast itself */
         }
         .toast-item.success { border-left: 5px solid #10B981; } /* Green */
-        .toast-item.error { border-left: 5px solid #EF4444; }   /* Red */
-        .toast-item.info { border-left: 5px solid #3B82F6; }   /* Blue */
+        .toast-item.error { border-left: 5px solid #EF4444; }    /* Red */
+        .toast-item.info { border-left: 5px solid #3B82F6; }    /* Blue */
         .toast-item.warning { border-left: 5px solid #F59E0B; } /* Yellow */
 
         @keyframes fadeInOut {
@@ -375,8 +329,8 @@
         <div id="rendered-app-container" class="w-full lg:w-1/2 p-4 bg-white rounded-xl shadow-2xl flex flex-col h-auto lg:h-[80vh] overflow-y-auto">
             <h2 class="text-xl font-bold mb-4 text-indigo-600">Rendered Flux Application</h2>
             
-            <!-- User ID Display -->
-            <p id="user-id-display" class="text-sm text-gray-500 mb-4 font-mono"></p>
+            <!-- Removed User ID Display since authentication is no longer active by default -->
+            <!-- <p id="user-id-display" class="text-sm text-gray-500 mb-4 font-mono"></p> -->
 
             <!-- Standard Flux Output Container -->
             <div id="rendered-output" class="flex-grow p-4 bg-gray-50 rounded-lg">
@@ -648,1013 +602,1114 @@
                     <li class="mb-2"><strong>button.modal:</strong> <code>text="string", modalId="string", style="tailwind-style-classes"</code></li>
                     <li class="mb-2 font-bold mt-4">--- New Logic & Data Commands ---</li>
                     <li class="mb-2"><strong>set:</strong> <code>key="string", value="string|number|boolean|array|object"</code> (stores in app state)</li>
-                    <li class="mb-2"><strong>get:</strong> <code>key="string", targetId="string"</code> (retrieves from state and sets element value)</li>
-                    <li class="mb-2"><strong>get.input:</strong> <code>id="string", key="string"</code> (retrieves value from input element and stores in state)</li>
+                    <li class="mb-2"><strong>get:</strong> <code>key="string"</code> (retrieves from app state)</li>
                     <li class="mb-2"><strong>if:</strong> <code>condition="state.key == 'value'", then="flux commands", else="flux commands"</code></li>
-                    <li class="mb-2"><strong>for:</strong> <code>collection="state.myArray", as="item", do="flux commands"</code></li>
-                    <li class="mb-2"><strong>call:</strong> <code>function="functionName", args=["arg1", "arg2"]</code></li>
-                    <li class="mb-2"><strong>toast:</strong> <code>message="string", type="success|error|info|warning", duration="number(ms)"</code></li>
-                    <li class="mb-2 font-bold mt-4">--- Firebase Commands ---</li>
-                    <li class="mb-2"><strong>firebase.set:</strong> <code>path="collection/document", data="{key: 'value'}"</code></li>
-                    <li class="mb-2"><strong>firebase.get:</strong> <code>path="collection/document", key="stateKey"</code></li>
-                    <li class="mb-2"><strong>firebase.update:</strong> <code>path="collection/document", data="{key: 'value'}"</code></li>
-                    <li class="mb-2"><strong>firebase.delete:</strong> <code>path="collection/document"</code></li>
-                    <li class="mb-2"><strong>firebase.listen:</strong> <code>path="collection/document", key="stateKey"</code> (listens for real-time changes)</li>
+                    <li class="mb-2"><strong>fetch:</strong> <code>url="string", method="GET|POST", body="string(optional)", headers="object(optional)", onSuccess="flux commands (binds 'result' variable)", onError="flux commands (binds 'error' variable)"</code></li>
+                    <li class="mb-2"><strong>loop:</strong> <code>from="number", to="number", step="number", commands="flux commands"</code> (binds 'index' variable)</li>
+                    <li class="mb-2"><strong>foreach:</strong> <code>array="array", commands="flux commands"</code> (binds 'item' and 'index' variables)</li>
+                    <li class="mb-2"><strong>switch:</strong> <code>variable="string", cases="object with key-value pairs of cases and commands"</code></li>
+                    <li class="mb-2"><strong>repeat:</strong> <code>count="number", commands="flux commands"</code> (binds 'index' variable)</li>
+                    <li class="mb-2"><strong>interval:</strong> <code>id="string", seconds="number", commands="flux commands"</code></li>
+                    <li class="mb-2"><strong>clearInterval:</strong> <code>id="string"</code></li>
+                    <li class="mb-2"><strong>countdown:</strong> <code>id="string", seconds="number", onTick="flux commands", onEnd="flux commands"</code></li>
+                    <li class="mb-2"><strong>stopCountdown:</strong> <code>id="string"</code></li>
+                    <li class="mb-2 font-bold mt-4">--- Firebase Commands (if enabled) ---</li>
+                    <li class="mb-2"><strong>firebase.setDoc:</strong> <code>collection="string", docId="string", data="object"</code></li>
+                    <li class="mb-2"><strong>firebase.updateDoc:</strong> <code>collection="string", docId="string", data="object"</code></li>
+                    <li class="mb-2"><strong>firebase.getDoc:</strong> <code>collection="string", docId="string", onSuccess="flux commands (binds 'doc' variable)"</code></li>
+                    <li class="mb-2"><strong>firebase.deleteDoc:</strong> <code>collection="string", docId="string"</code></li>
+                    <li class="mb-2"><strong>firebase.getDocs:</strong> <code>collection="string", onSuccess="flux commands (binds 'docs' variable)"</code></li>
+                    <li class="mb-2"><strong>firebase.realtime:</strong> <code>collection="string", onUpdate="flux commands (binds 'docs' variable)"</code></li>
                 </ul>
             `;
-            showCustomAlert(commandsList);
+            const modal = document.createElement('div');
+            modal.className = 'flux-modal-overlay';
+            modal.innerHTML = `
+                <div class="flux-modal-content">
+                    <div class="flex justify-end">
+                        <button class="text-gray-500 hover:text-gray-700 font-bold text-xl leading-none">&times;</button>
+                    </div>
+                    <div class="text-left max-h-[70vh] overflow-y-auto">
+                        ${commandsList}
+                    </div>
+                </div>
+            `;
+            modal.querySelector('button').onclick = () => {
+                modal.remove();
+            };
+            document.body.appendChild(modal);
         };
-
         commandsListBtn.onclick = showCommandsList;
 
-        const renderElement = (command, args, targetElement = dynamicOutputContainer) => {
-            const newElement = document.createElement('div');
-            newElement.setAttribute('data-id', args.id || '');
-            newElement.className = 'my-2';
-
-            const applyStyle = (el, style) => {
-                if (style) {
-                    const classList = style.split(' ').filter(c => c.trim() !== '');
-                    el.classList.add(...classList);
-                }
-            };
+        // --- Core Flux Parser & Renderer ---
+        const renderFlux = async () => {
+            dynamicOutputContainer.innerHTML = '';
+            showMainAppView();
+            const code = editor.value;
+            const lines = code.split('\n').map(line => line.trim()).filter(line => line.length > 0);
             
-            const handleOnClick = (el, onClick) => {
-                if (onClick) {
-                    el.onclick = async () => {
-                        const formId = args.formId;
-                        if (formId) {
-                            const formData = {};
-                            document.querySelectorAll(`#${formId} input, #${formId} textarea, #${formId} select`).forEach(input => {
-                                formData[input.id] = input.type === 'checkbox' ? input.checked : input.value;
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (line.startsWith('#') || line.startsWith('//')) continue;
+
+                // Simple check for nested commands
+                const firstColonIndex = line.indexOf(':');
+                if (firstColonIndex === -1) {
+                    continue;
+                }
+                const commandName = line.substring(0, firstColonIndex).trim();
+
+                let params = {};
+                try {
+                    const paramsString = line.substring(firstColonIndex + 1).trim();
+                    if (paramsString) {
+                        // Use a safer parser for key-value pairs, ignoring complex JSON for now
+                        const pairs = paramsString.match(/(?<key>[a-zA-Z0-9_.]+)\s*=\s*"(?<value>[^"]*)"|(?<key2>[a-zA-Z0-9_.]+)\s*=\s*(?<value2>\[.*?\]|\{.*?\}|true|false|\d+)/g);
+                        if (pairs) {
+                            pairs.forEach(pair => {
+                                const [key, value] = pair.split(/=(.*)/s).map(s => s.trim());
+                                // Sanitize and parse value
+                                let parsedValue = value;
+                                if (parsedValue.startsWith('[') && parsedValue.endsWith(']')) {
+                                    try {
+                                        parsedValue = JSON.parse(parsedValue.replace(/'/g, '"'));
+                                    } catch (e) {
+                                        console.error(`Error parsing array for key ${key}:`, e);
+                                    }
+                                } else if (parsedValue.startsWith('{') && parsedValue.endsWith('}')) {
+                                    try {
+                                        parsedValue = JSON.parse(parsedValue.replace(/'/g, '"'));
+                                    } catch (e) {
+                                        console.error(`Error parsing object for key ${key}:`, e);
+                                    }
+                                } else if (parsedValue.startsWith('"') && parsedValue.endsWith('"')) {
+                                    parsedValue = parsedValue.slice(1, -1);
+                                } else if (!isNaN(Number(parsedValue))) {
+                                    parsedValue = Number(parsedValue);
+                                } else if (parsedValue.toLowerCase() === 'true' || parsedValue.toLowerCase() === 'false') {
+                                    parsedValue = parsedValue.toLowerCase() === 'true';
+                                }
+                                params[key.replace(/\.$/, '')] = parsedValue;
                             });
-                            state[`form_${formId}`] = formData;
                         }
-                        await executeFluxCommands(onClick);
+                    }
+                } catch (e) {
+                    console.error("Error parsing command parameters:", e);
+                    showError(`Error parsing parameters for command '${commandName}' on line ${i + 1}. Check syntax.`);
+                    return;
+                }
+
+                // If condition logic
+                if (commandName === 'if') {
+                    if (!params.condition || !params.then) {
+                        showError("`if` command requires 'condition' and 'then' parameters.");
+                        return;
+                    }
+                    const conditionMet = safeEvaluateCondition(params.condition);
+                    const commandsToRun = conditionMet ? params.then : params.else;
+                    if (commandsToRun) {
+                        await executeFluxCommands(commandsToRun);
+                    }
+                    continue;
+                }
+
+                if (commandName === 'set') {
+                    state[params.key] = params.value;
+                    continue;
+                }
+
+                // If a command has an onClick property, it's a function, not a simple string
+                if (params.onClick) {
+                    const originalOnClick = params.onClick;
+                    params.onClick = async () => {
+                        await executeFluxCommands(originalOnClick);
+                        renderFlux(); // Re-render after a button click
                     };
                 }
+
+                // Execute a single command line.
+                await executeFluxCommand(commandName, params);
+            }
+        };
+
+        const executeFluxCommands = async (commandString) => {
+            const commands = commandString.split(';').map(cmd => cmd.trim()).filter(cmd => cmd.length > 0);
+            for (const command of commands) {
+                const firstColonIndex = command.indexOf(':');
+                if (firstColonIndex === -1) continue;
+                const commandName = command.substring(0, firstColonIndex).trim();
+                let params = {};
+                try {
+                    const paramsString = command.substring(firstColonIndex + 1).trim();
+                    if (paramsString) {
+                        const pairs = paramsString.match(/(?<key>[a-zA-Z0-9_.]+)\s*=\s*"(?<value>[^"]*)"|(?<key2>[a-zA-Z0-9_.]+)\s*=\s*(?<value2>\[.*?\]|\{.*?\}|true|false|\d+)/g);
+                        if (pairs) {
+                            pairs.forEach(pair => {
+                                const [key, value] = pair.split(/=(.*)/s).map(s => s.trim());
+                                let parsedValue = value;
+                                if (parsedValue.startsWith('[') && parsedValue.endsWith(']')) {
+                                    try { parsedValue = JSON.parse(parsedValue.replace(/'/g, '"')); } catch (e) {}
+                                } else if (parsedValue.startsWith('{') && parsedValue.endsWith('}')) {
+                                    try { parsedValue = JSON.parse(parsedValue.replace(/'/g, '"')); } catch (e) {}
+                                } else if (parsedValue.startsWith('"') && parsedValue.endsWith('"')) {
+                                    parsedValue = parsedValue.slice(1, -1);
+                                } else if (!isNaN(Number(parsedValue))) {
+                                    parsedValue = Number(parsedValue);
+                                } else if (parsedValue.toLowerCase() === 'true' || parsedValue.toLowerCase() === 'false') {
+                                    parsedValue = parsedValue.toLowerCase() === 'true';
+                                }
+                                params[key.replace(/\.$/, '')] = parsedValue;
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error parsing nested command parameters:", e);
+                    showError(`Error parsing parameters for nested command '${commandName}'.`);
+                    return;
+                }
+                
+                // If condition logic for nested commands
+                if (commandName === 'if') {
+                    if (!params.condition || !params.then) {
+                        showError("`if` command requires 'condition' and 'then' parameters.");
+                        return;
+                    }
+                    const conditionMet = safeEvaluateCondition(params.condition);
+                    const commandsToRun = conditionMet ? params.then : params.else;
+                    if (commandsToRun) {
+                        await executeFluxCommands(commandsToRun);
+                    }
+                    continue;
+                }
+                
+                await executeFluxCommand(commandName, params);
+            }
+        };
+
+        const executeFluxCommand = async (commandName, params) => {
+            const outputArea = dynamicOutputContainer;
+
+            // Resolve values from state
+            const resolveValue = (val) => {
+                if (typeof val === 'string' && val.startsWith('state.')) {
+                    const path = val.substring(6);
+                    let resolved = state;
+                    try {
+                        const pathParts = path.split('.');
+                        for (const part of pathParts) {
+                            resolved = resolved[part];
+                            if (resolved === undefined) break;
+                        }
+                    } catch (e) {
+                        resolved = undefined;
+                    }
+                    return resolved;
+                }
+                return val;
             };
 
-            switch (command) {
+            // Recursively resolve values in arrays and objects
+            const resolveParams = (obj) => {
+                if (Array.isArray(obj)) {
+                    return obj.map(item => resolveValue(item));
+                }
+                if (typeof obj === 'object' && obj !== null) {
+                    const newObj = {};
+                    for (const key in obj) {
+                        newObj[key] = resolveValue(obj[key]);
+                    }
+                    return newObj;
+                }
+                return resolveValue(obj);
+            };
+
+            params = resolveParams(params);
+
+            // Command switch statement
+            switch (commandName) {
                 case 'heading': {
-                    const headingTag = args.size && ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(args.size) ? args.size : 'h3';
-                    const heading = document.createElement(headingTag);
-                    heading.textContent = args.text || '';
-                    applyStyle(heading, `font-bold ${args.color}`);
-                    newElement.appendChild(heading);
+                    const element = document.createElement(params.size || 'h2');
+                    element.textContent = params.text;
+                    element.className = `${params.color || 'text-gray-800'} font-bold mt-4`;
+                    if (params.id) element.id = params.id;
+                    outputArea.appendChild(element);
                     break;
                 }
                 case 'paragraph': {
-                    const p = document.createElement('p');
-                    p.textContent = args.text || '';
-                    applyStyle(p, args.color);
-                    newElement.appendChild(p);
+                    const element = document.createElement('p');
+                    element.textContent = params.text;
+                    element.className = `${params.color || 'text-gray-700'} mt-2`;
+                    if (params.id) element.id = params.id;
+                    outputArea.appendChild(element);
                     break;
                 }
                 case 'list': {
-                    const title = document.createElement('h4');
-                    title.textContent = args.title || 'List';
-                    applyStyle(title, 'font-bold mb-2');
-                    newElement.appendChild(title);
-                    
-                    const listTag = (args.listStyle === 'numbered') ? 'ol' : 'ul';
-                    const list = document.createElement(listTag);
-                    applyStyle(list, `space-y-1 ${args.color}`);
-                    
-                    if (Array.isArray(args.items)) {
-                        args.items.forEach(itemText => {
-                            const li = document.createElement('li');
-                            li.textContent = itemText;
-                            applyStyle(li, args.itemStyle);
-                            list.appendChild(li);
+                    const listContainer = document.createElement('div');
+                    if (params.id) listContainer.id = params.id;
+                    if (params.title) {
+                        const titleEl = document.createElement('h4');
+                        titleEl.textContent = params.title;
+                        titleEl.className = `${params.color || 'text-gray-800'} font-semibold mt-4`;
+                        listContainer.appendChild(titleEl);
+                    }
+                    const listElement = document.createElement(params.listStyle === 'numbered' ? 'ol' : 'ul');
+                    listElement.className = `list-${params.listStyle === 'numbered' ? 'decimal' : 'disc'} list-inside mt-2 text-gray-700`;
+                    if (params.items && Array.isArray(params.items)) {
+                        params.items.forEach(itemText => {
+                            const listItem = document.createElement('li');
+                            listItem.textContent = itemText;
+                            if (params.itemStyle) listItem.className = params.itemStyle;
+                            listElement.appendChild(listItem);
                         });
                     }
-                    newElement.appendChild(list);
+                    listContainer.appendChild(listElement);
+                    outputArea.appendChild(listContainer);
                     break;
                 }
                 case 'button': {
-                    const button = document.createElement('button');
-                    button.textContent = args.text || 'Button';
-                    applyStyle(button, `px-4 py-2 rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 transition ${args.style}`);
-                    handleOnClick(button, args.onClick);
-                    newElement.appendChild(button);
+                    const element = document.createElement('button');
+                    element.textContent = params.text;
+                    element.className = `bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition ${params.style}`;
+                    if (params.onClick) element.onclick = params.onClick;
+                    outputArea.appendChild(element);
                     break;
                 }
                 case 'divider': {
-                    const hr = document.createElement('hr');
-                    applyStyle(hr, `my-4 ${args.color || 'border-gray-300'}`);
-                    newElement.appendChild(hr);
+                    const element = document.createElement('hr');
+                    element.className = `my-4 border-t-2 border-${params.color || 'gray-200'}`;
+                    if (params.id) element.id = params.id;
+                    outputArea.appendChild(element);
                     break;
                 }
                 case 'card': {
-                    const card = document.createElement('div');
-                    applyStyle(card, `p-4 bg-white rounded-lg shadow-md ${args.style}`);
-                    const title = document.createElement('h4');
-                    title.textContent = args.title || 'Card Title';
-                    applyStyle(title, 'font-bold text-lg mb-2');
-                    card.appendChild(title);
-                    const text = document.createElement('p');
-                    text.textContent = args.text || 'Card content.';
-                    applyStyle(text, 'text-gray-600');
-                    card.appendChild(text);
-                    newElement.appendChild(card);
+                    const element = document.createElement('div');
+                    element.className = `bg-white p-6 rounded-xl shadow-lg mt-4 ${params.style}`;
+                    if (params.id) element.id = params.id;
+                    if (params.title) {
+                        const titleEl = document.createElement('h4');
+                        titleEl.textContent = params.title;
+                        titleEl.className = 'text-xl font-bold text-gray-900 mb-2';
+                        element.appendChild(titleEl);
+                    }
+                    if (params.text) {
+                        const textEl = document.createElement('p');
+                        textEl.textContent = params.text;
+                        textEl.className = 'text-gray-600';
+                        element.appendChild(textEl);
+                    }
+                    outputArea.appendChild(element);
+                    break;
+                }
+                case 'show': {
+                    const target = document.getElementById(params.id);
+                    if (target) target.classList.remove('hidden');
+                    break;
+                }
+                case 'hide': {
+                    const target = document.getElementById(params.id);
+                    if (target) target.classList.add('hidden');
+                    break;
+                }
+                case 'wait': {
+                    if (params.seconds) {
+                        await wait(params.seconds);
+                    }
                     break;
                 }
                 case 'input': {
-                    const input = document.createElement('input');
-                    input.type = 'text';
-                    input.id = args.id;
-                    input.placeholder = args.placeholder || '';
-                    applyStyle(input, `w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${args.style}`);
-                    newElement.appendChild(input);
+                    const element = document.createElement('input');
+                    element.type = 'text';
+                    element.id = params.id;
+                    element.placeholder = params.placeholder || '';
+                    element.className = `w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 mt-2 ${params.style}`;
+                    outputArea.appendChild(element);
                     break;
                 }
                 case 'textarea': {
-                    const textarea = document.createElement('textarea');
-                    textarea.id = args.id;
-                    textarea.placeholder = args.placeholder || '';
-                    applyStyle(textarea, `w-full h-24 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${args.style}`);
-                    newElement.appendChild(textarea);
+                    const element = document.createElement('textarea');
+                    element.id = params.id;
+                    element.placeholder = params.placeholder || '';
+                    element.className = `w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 mt-2 ${params.style}`;
+                    outputArea.appendChild(element);
+                    break;
+                }
+                case 'alert': {
+                    showToast(params.text, params.type);
                     break;
                 }
                 case 'progress': {
-                    const label = document.createElement('label');
-                    label.textContent = args.label || 'Progress';
-                    label.htmlFor = args.id;
-                    applyStyle(label, 'block mb-1 text-sm font-medium text-gray-700');
-                    newElement.appendChild(label);
-                    
                     const progressContainer = document.createElement('div');
-                    applyStyle(progressContainer, 'w-full bg-gray-200 rounded-full h-2.5');
+                    progressContainer.id = params.id;
+                    progressContainer.className = 'w-full bg-gray-200 rounded-full mt-4';
                     
                     const progressBar = document.createElement('div');
-                    const progressValue = args.value || 0;
-                    const progressMax = args.max || 100;
-                    const width = (progressValue / progressMax) * 100;
-                    applyStyle(progressBar, `bg-indigo-600 h-2.5 rounded-full transition-all duration-500`);
-                    progressBar.style.width = `${width}%`;
-                    
+                    progressBar.className = `bg-indigo-600 text-xs font-medium text-white text-center p-0.5 leading-none rounded-full`;
+                    progressBar.style.width = `${(params.value / params.max) * 100}%`;
+                    progressBar.textContent = `${params.label || ''} ${params.value}/${params.max}`;
                     progressContainer.appendChild(progressBar);
-                    newElement.appendChild(progressContainer);
+                    outputArea.appendChild(progressContainer);
                     break;
                 }
                 case 'link': {
-                    const a = document.createElement('a');
-                    a.textContent = args.text || 'Link';
-                    a.href = args.url || '#';
-                    a.target = '_blank';
-                    applyStyle(a, 'text-indigo-600 hover:underline');
-                    newElement.appendChild(a);
+                    const element = document.createElement('a');
+                    element.textContent = params.text;
+                    element.href = params.url;
+                    element.target = '_blank';
+                    element.className = 'text-indigo-600 hover:text-indigo-800 underline mt-2 inline-block';
+                    outputArea.appendChild(element);
                     break;
                 }
                 case 'iframe': {
-                    showIframeView(args.url);
-                    return;
+                    showIframeView(params.url);
+                    break;
                 }
-                case 'iframe.html': {
-                    showIframeView(null, args.content);
-                    return;
+                case 'search': {
+                    showCustomAlert("Search functionality is not yet implemented.");
+                    break;
                 }
                 case 'table': {
+                    const tableContainer = document.createElement('div');
+                    tableContainer.className = 'overflow-x-auto mt-4';
+                    if (params.id) tableContainer.id = params.id;
+
                     const table = document.createElement('table');
-                    applyStyle(table, 'min-w-full divide-y divide-gray-200 shadow-lg rounded-lg overflow-hidden');
+                    table.className = 'min-w-full divide-y divide-gray-200 rounded-lg shadow';
+                    
                     const thead = document.createElement('thead');
-                    applyStyle(thead, 'bg-gray-50');
+                    thead.className = 'bg-gray-50';
                     const headerRow = document.createElement('tr');
-                    (args.headers || []).forEach(headerText => {
+                    params.headers.forEach(headerText => {
                         const th = document.createElement('th');
+                        th.scope = 'col';
+                        th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
                         th.textContent = headerText;
-                        applyStyle(th, 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider');
                         headerRow.appendChild(th);
                     });
                     thead.appendChild(headerRow);
                     table.appendChild(thead);
-                    
+
                     const tbody = document.createElement('tbody');
-                    applyStyle(tbody, 'bg-white divide-y divide-gray-200');
-                    (args.rows || []).forEach(rowArray => {
+                    tbody.className = 'bg-white divide-y divide-gray-200';
+                    params.rows.forEach(rowData => {
                         const row = document.createElement('tr');
-                        rowArray.forEach(cellText => {
+                        rowData.forEach(cellData => {
                             const td = document.createElement('td');
-                            td.textContent = cellText;
-                            applyStyle(td, 'px-6 py-4 whitespace-nowrap text-sm text-gray-900');
+                            td.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-500';
+                            td.textContent = cellData;
                             row.appendChild(td);
                         });
                         tbody.appendChild(row);
                     });
                     table.appendChild(tbody);
-                    newElement.appendChild(table);
+
+                    tableContainer.appendChild(table);
+                    outputArea.appendChild(tableContainer);
                     break;
                 }
                 case 'carousel': {
                     const carouselContainer = document.createElement('div');
-                    carouselContainer.className = 'carousel-container';
-
+                    carouselContainer.id = params.id;
+                    carouselContainer.className = 'carousel-container mt-4';
+                    
                     const slidesContainer = document.createElement('div');
                     slidesContainer.className = 'carousel-slides';
+
+                    if (params.images && Array.isArray(params.images)) {
+                        params.images.forEach((imgUrl, index) => {
+                            const slide = document.createElement('div');
+                            slide.className = `carousel-slide ${index === 0 ? 'active' : ''}`;
+                            const img = document.createElement('img');
+                            img.src = imgUrl;
+                            img.alt = `Image ${index + 1}`;
+                            img.className = 'w-full';
+                            slide.appendChild(img);
+                            slidesContainer.appendChild(slide);
+                        });
+                    }
                     carouselContainer.appendChild(slidesContainer);
 
-                    (args.images || []).forEach((imageUrl, index) => {
-                        const slide = document.createElement('div');
-                        slide.className = `carousel-slide ${index === 0 ? 'active' : ''}`;
-                        const img = document.createElement('img');
-                        img.src = imageUrl;
-                        img.alt = `Slide ${index + 1}`;
-                        img.onerror = () => {
-                            img.src = `https://placehold.co/600x400/1e293b/e2e8f0?text=Image+Load+Error`;
-                        };
-                        slide.appendChild(img);
-                        slidesContainer.appendChild(slide);
-                    });
+                    const prevBtn = document.createElement('button');
+                    prevBtn.textContent = '❮';
+                    prevBtn.className = 'carousel-btn carousel-prev';
+                    prevBtn.onclick = () => {
+                        const slides = carouselContainer.querySelectorAll('.carousel-slide');
+                        let currentSlideIndex = Array.from(slides).findIndex(slide => slide.classList.contains('active'));
+                        slides[currentSlideIndex].classList.remove('active');
+                        currentSlideIndex = (currentSlideIndex - 1 + slides.length) % slides.length;
+                        slides[currentSlideIndex].classList.add('active');
+                    };
+                    carouselContainer.appendChild(prevBtn);
 
-                    if ((args.images || []).length > 1) {
-                        const prevBtn = document.createElement('button');
-                        prevBtn.textContent = '❮';
-                        prevBtn.className = 'carousel-btn carousel-prev';
-                        prevBtn.onclick = () => {
-                            let currentSlide = carouselContainer.querySelector('.carousel-slide.active');
-                            let prevSlide = currentSlide.previousElementSibling || slidesContainer.lastElementChild;
-                            currentSlide.classList.remove('active');
-                            prevSlide.classList.add('active');
-                        };
+                    const nextBtn = document.createElement('button');
+                    nextBtn.textContent = '❯';
+                    nextBtn.className = 'carousel-btn carousel-next';
+                    nextBtn.onclick = () => {
+                        const slides = carouselContainer.querySelectorAll('.carousel-slide');
+                        let currentSlideIndex = Array.from(slides).findIndex(slide => slide.classList.contains('active'));
+                        slides[currentSlideIndex].classList.remove('active');
+                        currentSlideIndex = (currentSlideIndex + 1) % slides.length;
+                        slides[currentSlideIndex].classList.add('active');
+                    };
+                    carouselContainer.appendChild(nextBtn);
 
-                        const nextBtn = document.createElement('button');
-                        nextBtn.textContent = '❯';
-                        nextBtn.className = 'carousel-btn carousel-next';
-                        nextBtn.onclick = () => {
-                            let currentSlide = carouselContainer.querySelector('.carousel-slide.active');
-                            let nextSlide = currentSlide.nextElementSibling || slidesContainer.firstElementChild;
-                            currentSlide.classList.remove('active');
-                            nextSlide.classList.add('active');
-                        };
-                        carouselContainer.appendChild(prevBtn);
-                        carouselContainer.appendChild(nextBtn);
-                    }
-                    newElement.appendChild(carouselContainer);
+                    outputArea.appendChild(carouselContainer);
                     break;
                 }
                 case 'chart': {
                     const chartContainer = document.createElement('div');
-                    applyStyle(chartContainer, 'chart-container');
-                    const canvas = document.createElement('canvas');
-                    const chartId = args.id || `chart-${Date.now()}`;
-                    canvas.id = chartId;
-                    chartContainer.appendChild(canvas);
-                    newElement.appendChild(chartContainer);
+                    chartContainer.className = 'chart-container';
+                    if (params.id) chartContainer.id = params.id;
                     
-                    const ctx = canvas.getContext('2d');
-                    new Chart(ctx, {
-                        type: args.type,
+                    const canvas = document.createElement('canvas');
+                    chartContainer.appendChild(canvas);
+                    outputArea.appendChild(chartContainer);
+
+                    new Chart(canvas, {
+                        type: params.type,
                         data: {
-                            labels: args.labels || [],
+                            labels: params.labels,
                             datasets: [{
-                                label: args.title || 'Chart',
-                                data: args.data || [],
-                                backgroundColor: [
-                                    'rgba(79, 70, 229, 0.5)',
-                                    'rgba(129, 140, 248, 0.5)',
-                                    'rgba(244, 63, 94, 0.5)',
-                                    'rgba(16, 185, 129, 0.5)',
-                                ],
-                                borderColor: [
-                                    'rgba(79, 70, 229, 1)',
-                                    'rgba(129, 140, 248, 1)',
-                                    'rgba(244, 63, 94, 1)',
-                                    'rgba(16, 185, 129, 1)',
-                                ],
-                                borderWidth: 1
+                                label: params.title || 'Data',
+                                data: params.data,
+                                backgroundColor: ['#4F46E5', '#8B5CF6', '#EC4899', '#F97316', '#F59E0B', '#10B981'],
+                                borderColor: ['#4F46E5', '#8B5CF6', '#EC4899', '#F97316', '#F59E0B', '#10B981'],
+                                borderWidth: 1,
                             }]
                         },
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    display: true,
-                                    position: 'top',
-                                },
-                                title: {
-                                    display: !!args.title,
-                                    text: args.title,
-                                }
-                            },
                         }
                     });
                     break;
                 }
                 case 'form': {
-                    const form = document.createElement('div');
-                    form.id = args.id;
-                    applyStyle(form, `p-4 border border-gray-200 rounded-lg space-y-4 ${args.style}`);
-                    newElement.appendChild(form);
-                    // Commands following a form command will be rendered inside this form.
-                    targetElement = form;
+                    const form = document.createElement('form');
+                    form.id = params.id;
+                    form.className = 'mt-4 space-y-4';
+                    form.onsubmit = (e) => e.preventDefault();
+                    outputArea.appendChild(form);
                     break;
                 }
                 case 'submit': {
-                    const button = document.createElement('button');
-                    button.textContent = args.text || 'Submit';
-                    applyStyle(button, `px-4 py-2 rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 transition ${args.style}`);
-                    handleOnClick(button, args.onClick);
-                    newElement.appendChild(button);
+                    const form = document.getElementById(params.formId);
+                    if (form) {
+                        const button = document.createElement('button');
+                        button.type = 'submit';
+                        button.textContent = params.text;
+                        button.className = `bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition ${params.style}`;
+                        button.onclick = () => {
+                            const formData = {};
+                            const inputs = form.querySelectorAll('input, textarea');
+                            inputs.forEach(input => {
+                                formData[input.id] = input.value;
+                            });
+                            // Update the state with form data
+                            state.formData = formData;
+                            if (params.onClick) {
+                                executeFluxCommands(params.onClick);
+                            }
+                        };
+                        form.appendChild(button);
+                    }
+                    break;
+                }
+                case 'set': {
+                    if (params.key && params.value !== undefined) {
+                        state[params.key] = params.value;
+                    }
+                    break;
+                }
+                case 'get': {
+                    const value = state[params.key];
+                    if (value !== undefined) {
+                        const p = document.createElement('p');
+                        p.textContent = `Value of '${params.key}': ${JSON.stringify(value)}`;
+                        p.className = 'text-sm text-gray-500 mt-2';
+                        outputArea.appendChild(p);
+                    } else {
+                        const p = document.createElement('p');
+                        p.textContent = `Key '${params.key}' not found in state.`;
+                        p.className = 'text-sm text-red-500 mt-2';
+                        outputArea.appendChild(p);
+                    }
                     break;
                 }
                 case 'image': {
                     const img = document.createElement('img');
-                    img.src = args.src;
-                    img.alt = args.alt || '';
-                    if (args.width) img.style.width = args.width;
-                    if (args.height) img.style.height = args.height;
-                    applyStyle(img, `rounded-lg ${args.style}`);
-                    img.onerror = () => {
-                         img.src = `https://placehold.co/${img.width || 400}x${img.height || 300}/1e293b/e2e8f0?text=Image+Load+Error`;
-                    };
-                    newElement.appendChild(img);
+                    img.src = params.src;
+                    img.alt = params.alt || '';
+                    img.className = `rounded-lg shadow-md ${params.style}`;
+                    if (params.width) img.style.width = params.width;
+                    if (params.height) img.style.height = params.height;
+                    if (params.id) img.id = params.id;
+                    outputArea.appendChild(img);
                     break;
                 }
                 case 'video': {
                     const video = document.createElement('video');
-                    video.src = args.src;
-                    video.controls = args.controls === 'true';
-                    video.autoplay = args.autoplay === 'true';
-                    video.loop = args.loop === 'true';
-                    video.muted = args.muted === 'true';
-                    if (args.width) video.style.width = args.width;
-                    if (args.height) video.style.height = args.height;
-                    applyStyle(video, `rounded-lg ${args.style}`);
-                    newElement.appendChild(video);
+                    video.src = params.src;
+                    video.controls = params.controls === 'true';
+                    video.autoplay = params.autoplay === 'true';
+                    video.loop = params.loop === 'true';
+                    video.muted = params.muted === 'true';
+                    video.className = `rounded-lg shadow-md ${params.style}`;
+                    if (params.width) video.style.width = params.width;
+                    if (params.height) video.style.height = params.height;
+                    if (params.id) video.id = params.id;
+                    outputArea.appendChild(video);
                     break;
                 }
                 case 'audio': {
                     const audio = document.createElement('audio');
-                    audio.src = args.src;
-                    audio.controls = args.controls === 'true';
-                    audio.autoplay = args.autoplay === 'true';
-                    audio.loop = args.loop === 'true';
-                    audio.muted = args.muted === 'true';
-                    applyStyle(audio, `rounded-lg ${args.style}`);
-                    newElement.appendChild(audio);
+                    audio.src = params.src;
+                    audio.controls = params.controls === 'true';
+                    audio.autoplay = params.autoplay === 'true';
+                    audio.loop = params.loop === 'true';
+                    audio.muted = params.muted === 'true';
+                    audio.className = `rounded-lg shadow-md ${params.style}`;
+                    if (params.id) audio.id = params.id;
+                    outputArea.appendChild(audio);
+                    break;
+                }
+                case 'iframe.html': {
+                    showIframeView(null, params.content);
                     break;
                 }
                 case 'codeblock': {
                     const pre = document.createElement('pre');
-                    applyStyle(pre, `bg-gray-800 text-white p-4 rounded-lg overflow-x-auto ${args.style}`);
-                    const code = document.createElement('code');
-                    code.textContent = args.code;
-                    code.className = `language-${args.lang || 'plaintext'}`;
-                    pre.appendChild(code);
-                    newElement.appendChild(pre);
+                    pre.className = `p-4 rounded-lg bg-gray-800 text-white overflow-x-auto my-4 ${params.style}`;
+                    if (params.id) pre.id = params.id;
+                    const codeEl = document.createElement('code');
+                    codeEl.className = `language-${params.lang || 'plaintext'}`;
+                    codeEl.textContent = params.code;
+                    pre.appendChild(codeEl);
+                    outputArea.appendChild(pre);
                     break;
                 }
                 case 'grid': {
                     const grid = document.createElement('div');
-                    applyStyle(grid, `grid grid-cols-${args.columns || 2} gap-${args.gap || 4} ${args.style}`);
-                    newElement.appendChild(grid);
-                    targetElement = grid;
+                    grid.className = `grid grid-cols-${params.columns} gap-${params.gap} mt-4 ${params.style}`;
+                    if (params.id) grid.id = params.id;
+                    outputArea.appendChild(grid);
+                    state.currentGrid = grid; // Store a reference to the last grid
                     break;
                 }
                 case 'flex': {
                     const flex = document.createElement('div');
-                    applyStyle(flex, `flex flex-${args.direction || 'row'} justify-${args.justify || 'start'} items-${args.align || 'start'} ${args.style}`);
-                    newElement.appendChild(flex);
-                    targetElement = flex;
+                    flex.className = `flex flex-${params.direction} justify-${params.justify} items-${params.align} mt-4 ${params.style}`;
+                    if (params.id) flex.id = params.id;
+                    outputArea.appendChild(flex);
+                    state.currentFlex = flex; // Store a reference to the last flex container
                     break;
                 }
                 case 'accordion': {
-                    const accordion = document.createElement('div');
-                    applyStyle(accordion, `accordion-item border border-gray-200 rounded-lg overflow-hidden my-2`);
+                    const accordionItem = document.createElement('div');
+                    accordionItem.className = 'accordion-item border rounded-lg overflow-hidden mt-4';
+                    if (params.id) accordionItem.id = params.id;
+
                     const header = document.createElement('div');
-                    applyStyle(header, `accordion-header`);
-                    const title = document.createElement('h4');
-                    applyStyle(title, `font-medium`);
-                    title.textContent = args.title || 'Accordion Title';
-                    const icon = document.createElement('span');
-                    applyStyle(icon, `accordion-icon`);
-                    icon.textContent = '>';
-                    header.appendChild(title);
-                    header.appendChild(icon);
-                    
+                    header.className = 'accordion-header';
+                    header.innerHTML = `
+                        <h4 class="font-bold text-gray-800">${params.title}</h4>
+                        <span class="accordion-icon text-gray-500 text-2xl">+</span>
+                    `;
                     const content = document.createElement('div');
-                    applyStyle(content, `accordion-content`);
-                    content.innerHTML = args.content || 'Accordion Content';
-                    
+                    content.className = 'accordion-content';
+                    content.textContent = params.content;
+
                     header.onclick = () => {
-                        accordion.classList.toggle('active');
+                        accordionItem.classList.toggle('active');
                     };
-                    
-                    accordion.appendChild(header);
-                    accordion.appendChild(content);
-                    newElement.appendChild(accordion);
+
+                    accordionItem.appendChild(header);
+                    accordionItem.appendChild(content);
+                    outputArea.appendChild(accordionItem);
                     break;
                 }
                 case 'tabs': {
                     const tabsContainer = document.createElement('div');
-                    tabsContainer.id = args.id;
-                    applyStyle(tabsContainer, `w-full my-4`);
+                    tabsContainer.className = 'mt-4';
+                    if (params.id) tabsContainer.id = params.id;
 
-                    const tabButtonsContainer = document.createElement('div');
-                    applyStyle(tabButtonsContainer, `tab-buttons`);
+                    const tabButtons = document.createElement('div');
+                    tabButtons.className = 'tab-buttons';
                     
-                    const tabContentContainer = document.createElement('div');
-                    applyStyle(tabContentContainer, `tab-content`);
+                    const tabContent = document.createElement('div');
+                    tabContent.className = 'tab-content border border-t-0 rounded-b-lg';
 
-                    const tabs = args.tabs || [];
-                    const content = args.content || [];
-
-                    tabs.forEach((tabText, index) => {
+                    params.tabs.forEach((tabName, index) => {
                         const button = document.createElement('button');
-                        applyStyle(button, `tab-button ${index === 0 ? 'active' : ''}`);
-                        button.textContent = tabText;
+                        button.textContent = tabName;
+                        button.className = `tab-button ${index === 0 ? 'active' : ''}`;
                         button.onclick = () => {
                             tabsContainer.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-                            tabsContainer.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
                             button.classList.add('active');
-                            tabsContainer.querySelector(`#${args.id}-pane-${index}`).classList.add('active');
+                            tabsContainer.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+                            tabsContainer.querySelector(`#${params.id}-tab-${index}`).classList.add('active');
                         };
-                        tabButtonsContainer.appendChild(button);
+                        tabButtons.appendChild(button);
 
                         const pane = document.createElement('div');
-                        pane.id = `${args.id}-pane-${index}`;
-                        applyStyle(pane, `tab-pane ${index === 0 ? 'active' : ''}`);
-                        pane.innerHTML = content[index] || '';
-                        tabContentContainer.appendChild(pane);
+                        pane.id = `${params.id}-tab-${index}`;
+                        pane.className = `tab-pane ${index === 0 ? 'active' : ''}`;
+                        pane.innerHTML = params.content[index];
+                        tabContent.appendChild(pane);
                     });
 
-                    tabsContainer.appendChild(tabButtonsContainer);
-                    tabsContainer.appendChild(tabContentContainer);
-                    newElement.appendChild(tabsContainer);
+                    tabsContainer.appendChild(tabButtons);
+                    tabsContainer.appendChild(tabContent);
+                    outputArea.appendChild(tabsContainer);
                     break;
                 }
                 case 'rating': {
                     const ratingContainer = document.createElement('div');
-                    applyStyle(ratingContainer, `flex items-center space-x-1 ${args.style}`);
-                    const value = Math.max(0, Math.min(args.value || 0, args.max || 5));
-                    const max = args.max || 5;
-                    const size = args.size || '24px';
-                    const color = args.color || 'text-yellow-400';
-                    
+                    ratingContainer.className = 'flex items-center space-x-1 mt-2';
+                    if (params.id) ratingContainer.id = params.id;
+
+                    const max = params.max || 5;
                     for (let i = 1; i <= max; i++) {
                         const star = document.createElement('span');
-                        star.innerHTML = (i <= value) ? '★' : '☆';
-                        star.style.fontSize = size;
-                        applyStyle(star, `${color}`);
+                        star.textContent = '★'; // Unicode star
+                        star.style.fontSize = `${params.size || 24}px`;
+                        star.style.color = i <= params.value ? (params.color || '#F59E0B') : '#d1d5db';
                         ratingContainer.appendChild(star);
                     }
-                    newElement.appendChild(ratingContainer);
+                    outputArea.appendChild(ratingContainer);
                     break;
                 }
                 case 'slider': {
+                    const sliderContainer = document.createElement('div');
+                    sliderContainer.className = 'mt-4';
+                    
                     const slider = document.createElement('input');
                     slider.type = 'range';
-                    slider.id = args.id;
-                    slider.min = args.min || 0;
-                    slider.max = args.max || 100;
-                    slider.value = args.value || 0;
-                    slider.step = args.step || 1;
-                    applyStyle(slider, `w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer ${args.style}`);
-                    newElement.appendChild(slider);
+                    slider.id = params.id;
+                    slider.min = params.min || 0;
+                    slider.max = params.max || 100;
+                    slider.value = params.value || 0;
+                    slider.step = params.step || 1;
+                    slider.className = `w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer ${params.style}`;
+                    outputArea.appendChild(slider);
                     break;
                 }
                 case 'date-picker': {
                     const label = document.createElement('label');
-                    label.textContent = args.label || '';
-                    label.htmlFor = args.id;
-                    applyStyle(label, 'block text-sm font-medium text-gray-700');
-                    newElement.appendChild(label);
-                    
+                    label.textContent = params.label;
+                    label.className = 'block text-sm font-medium text-gray-700 mt-4';
+                    outputArea.appendChild(label);
                     const input = document.createElement('input');
                     input.type = 'date';
-                    input.id = args.id;
-                    input.value = args.value || '';
-                    applyStyle(input, `mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 ${args.style}`);
-                    newElement.appendChild(input);
+                    input.id = params.id;
+                    if (params.value) input.value = params.value;
+                    input.className = `mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 ${params.style}`;
+                    outputArea.appendChild(input);
                     break;
                 }
                 case 'time-picker': {
                     const label = document.createElement('label');
-                    label.textContent = args.label || '';
-                    label.htmlFor = args.id;
-                    applyStyle(label, 'block text-sm font-medium text-gray-700');
-                    newElement.appendChild(label);
-                    
+                    label.textContent = params.label;
+                    label.className = 'block text-sm font-medium text-gray-700 mt-4';
+                    outputArea.appendChild(label);
                     const input = document.createElement('input');
                     input.type = 'time';
-                    input.id = args.id;
-                    input.value = args.value || '';
-                    applyStyle(input, `mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 ${args.style}`);
-                    newElement.appendChild(input);
+                    input.id = params.id;
+                    if (params.value) input.value = params.value;
+                    input.className = `mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 ${params.style}`;
+                    outputArea.appendChild(input);
                     break;
                 }
                 case 'color-picker': {
                     const label = document.createElement('label');
-                    label.textContent = args.label || '';
-                    label.htmlFor = args.id;
-                    applyStyle(label, 'block text-sm font-medium text-gray-700');
-                    newElement.appendChild(label);
-                    
+                    label.textContent = params.label;
+                    label.className = 'block text-sm font-medium text-gray-700 mt-4';
+                    outputArea.appendChild(label);
                     const input = document.createElement('input');
                     input.type = 'color';
-                    input.id = args.id;
-                    input.value = args.value || '#000000';
-                    applyStyle(input, `mt-1 block w-10 h-10 rounded-md border-gray-300 shadow-sm ${args.style}`);
-                    newElement.appendChild(input);
+                    input.id = params.id;
+                    if (params.value) input.value = params.value;
+                    input.className = `mt-1 block w-full h-10 rounded-md border-gray-300 shadow-sm ${params.style}`;
+                    outputArea.appendChild(input);
                     break;
                 }
                 case 'qr-code': {
-                    const size = args.size || 128;
-                    const colorDark = args.color || '#000000';
-                    const colorLight = args.background || '#ffffff';
                     const qrDiv = document.createElement('div');
-                    qrDiv.id = `qrcode-${args.id || Date.now()}`;
-                    newElement.appendChild(qrDiv);
+                    qrDiv.className = 'mt-4 flex justify-center p-4 bg-white rounded-lg shadow';
+                    if (params.id) qrDiv.id = params.id;
+                    outputArea.appendChild(qrDiv);
                     
-                    setTimeout(() => { // Ensure the div is in the DOM before creating the QR code
-                        new QRCode(qrDiv.id, {
-                            text: args.text || 'https://example.com',
-                            width: size,
-                            height: size,
-                            colorDark: colorDark,
-                            colorLight: colorLight,
-                            correctLevel: QRCode.CorrectLevel.H
-                        });
-                    }, 0);
+                    new QRCode(qrDiv, {
+                        text: params.text,
+                        width: params.size || 128,
+                        height: params.size || 128,
+                        colorDark: params.color || "#000000",
+                        colorLight: params.background || "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
                     break;
                 }
                 case 'map': {
+                    const mapContainer = document.createElement('div');
+                    mapContainer.className = `mt-4 rounded-lg shadow-md overflow-hidden ${params.style}`;
+                    if (params.id) mapContainer.id = params.id;
+                    mapContainer.style.width = params.width || '100%';
+                    mapContainer.style.height = params.height || '400px';
+
                     const iframe = document.createElement('iframe');
-                    const zoom = args.zoom || 15;
-                    const query = encodeURIComponent(args.query || 'London, UK');
-                    iframe.src = `https://maps.google.com/maps?q=${query}&z=${zoom}&output=embed`;
-                    iframe.width = args.width || '100%';
-                    iframe.height = args.height || '300px';
-                    iframe.frameBorder = '0';
-                    iframe.allowfullscreen = '';
-                    applyStyle(iframe, `rounded-lg ${args.style}`);
-                    newElement.appendChild(iframe);
+                    const encodedQuery = encodeURIComponent(params.query);
+                    const zoom = params.zoom || 15;
+                    iframe.src = `https://maps.google.com/maps?q=${encodedQuery}&t=&z=${zoom}&ie=UTF8&iwloc=&output=embed`;
+                    iframe.width = '100%';
+                    iframe.height = '100%';
+                    iframe.style.border = '0';
+                    iframe.allowFullscreen = '';
+                    iframe.loading = 'lazy';
+                    iframe.referrerPolicy = 'no-referrer-when-downgrade';
+
+                    mapContainer.appendChild(iframe);
+                    outputArea.appendChild(mapContainer);
                     break;
                 }
                 case 'toast': {
-                    showToast(args.message, args.type, args.duration);
-                    return;
+                    showToast(params.message, params.type, params.duration);
+                    break;
                 }
                 case 'spinner': {
                     const spinner = document.createElement('div');
-                    const size = args.size || '32px';
-                    const color = args.color || 'border-indigo-600';
-                    spinner.style.width = size;
-                    spinner.style.height = size;
-                    applyStyle(spinner, `spinner ${color}`);
-                    newElement.appendChild(spinner);
+                    spinner.className = 'spinner mt-4';
+                    spinner.style.width = `${params.size || 32}px`;
+                    spinner.style.height = `${params.size || 32}px`;
+                    spinner.style.borderLeftColor = params.color || '#4F46E5';
+                    if (params.id) spinner.id = params.id;
+                    outputArea.appendChild(spinner);
                     break;
                 }
                 case 'badge': {
                     const badge = document.createElement('span');
-                    badge.textContent = args.text || '';
-                    applyStyle(badge, `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-${args.color}-100 text-${args.color}-800`);
-                    newElement.appendChild(badge);
+                    badge.textContent = params.text;
+                    badge.className = `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-${params.color}-100 text-${params.color}-800 mt-2`;
+                    outputArea.appendChild(badge);
                     break;
                 }
                 case 'circular-progress': {
-                    const size = args.size || 100;
-                    const value = args.value || 0;
-                    const max = args.max || 100;
-                    const color = args.color || 'stroke-indigo-600';
-                    
+                    const size = params.size || 100;
+                    const strokeWidth = 10;
+                    const radius = (size / 2) - (strokeWidth / 2);
+                    const circumference = 2 * Math.PI * radius;
+                    const offset = circumference - (params.value / params.max) * circumference;
+
                     const progressContainer = document.createElement('div');
-                    applyStyle(progressContainer, 'circular-progress');
+                    progressContainer.className = 'circular-progress mt-4';
                     progressContainer.style.width = `${size}px`;
                     progressContainer.style.height = `${size}px`;
-                    
-                    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-                    svg.setAttribute('width', size);
-                    svg.setAttribute('height', size);
-                    svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
-                    
-                    const backgroundCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                    backgroundCircle.setAttribute('cx', size / 2);
-                    backgroundCircle.setAttribute('cy', size / 2);
-                    backgroundCircle.setAttribute('r', size / 2.5);
-                    applyStyle(backgroundCircle, 'stroke-gray-300 fill-transparent stroke-[10]');
-                    
-                    const progressCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                    progressCircle.setAttribute('cx', size / 2);
-                    progressCircle.setAttribute('cy', size / 2);
-                    progressCircle.setAttribute('r', size / 2.5);
-                    const circumference = 2 * Math.PI * (size / 2.5);
-                    const progress = (value / max) * circumference;
-                    progressCircle.style.strokeDasharray = circumference;
-                    progressCircle.style.strokeDashoffset = circumference - progress;
-                    applyStyle(progressCircle, `${color} fill-transparent stroke-[10]`);
-                    
-                    svg.appendChild(backgroundCircle);
-                    svg.appendChild(progressCircle);
-                    
-                    const label = document.createElement('span');
-                    label.textContent = `${value}/${max}`;
-                    applyStyle(label, 'text-lg font-bold');
-                    
-                    progressContainer.appendChild(svg);
-                    progressContainer.appendChild(label);
-                    newElement.appendChild(progressContainer);
+                    if (params.id) progressContainer.id = params.id;
+
+                    progressContainer.innerHTML = `
+                        <svg width="${size}" height="${size}">
+                            <circle class="text-gray-200" stroke-width="${strokeWidth}" stroke="currentColor" fill="transparent" r="${radius}" cx="${size / 2}" cy="${size / 2}" />
+                            <circle class="text-${params.color || 'indigo'}-600" stroke-width="${strokeWidth}" stroke-linecap="round" stroke="currentColor" fill="transparent" r="${radius}" cx="${size / 2}" cy="${size / 2}"
+                                style="stroke-dasharray: ${circumference}; stroke-dashoffset: ${offset};" />
+                        </svg>
+                        <span class="absolute text-sm font-semibold">${Math.round((params.value / params.max) * 100)}%</span>
+                    `;
+                    outputArea.appendChild(progressContainer);
                     break;
                 }
                 case 'toggle': {
-                    const toggleContainer = document.createElement('label');
-                    applyStyle(toggleContainer, `flex items-center space-x-2 cursor-pointer`);
-                    
-                    const input = document.createElement('input');
-                    input.type = 'checkbox';
-                    input.id = args.id;
-                    input.checked = (state[args.id] === true);
-                    applyStyle(input, `sr-only peer`);
+                    const toggleContainer = document.createElement('div');
+                    toggleContainer.className = 'flex items-center space-x-2 mt-4';
+                    if (params.id) toggleContainer.id = params.id;
 
-                    const toggleSwitch = document.createElement('div');
-                    applyStyle(toggleSwitch, `relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600`);
-                    
-                    const label = document.createElement('span');
-                    label.textContent = args.label || '';
-                    applyStyle(label, `text-sm font-medium text-gray-700`);
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.id = `${params.id}-toggle`;
+                    checkbox.className = 'sr-only peer';
+                    state[params.id] = false; // Initialize state
 
-                    input.onchange = () => {
-                        state[args.id] = input.checked;
-                        console.log(`State for '${args.id}' changed to:`, state[args.id]);
+                    const label = document.createElement('label');
+                    label.htmlFor = `${params.id}-toggle`;
+                    label.className = `relative inline-flex items-center cursor-pointer`;
+                    label.innerHTML = `
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:border-gray-300 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        <span class="ml-3 text-sm font-medium text-gray-900">${params.label}</span>
+                    `;
+
+                    checkbox.onchange = () => {
+                        state[params.id] = checkbox.checked;
+                        console.log(`Toggle '${params.id}' is now: ${state[params.id]}`);
                     };
-                    
-                    toggleContainer.appendChild(input);
-                    toggleContainer.appendChild(toggleSwitch);
+
+                    toggleContainer.appendChild(checkbox);
                     toggleContainer.appendChild(label);
-                    newElement.appendChild(toggleContainer);
+                    outputArea.appendChild(toggleContainer);
                     break;
                 }
                 case 'radio-group': {
-                    const radioGroupContainer = document.createElement('div');
-                    applyStyle(radioGroupContainer, `space-y-2`);
-                    (args.options || []).forEach(option => {
+                    const groupContainer = document.createElement('div');
+                    groupContainer.className = 'mt-4';
+                    if (params.name) groupContainer.id = `radio-group-${params.name}`;
+
+                    params.options.forEach(option => {
+                        const radioDiv = document.createElement('div');
+                        radioDiv.className = 'flex items-center';
+                        
+                        const radio = document.createElement('input');
+                        radio.type = 'radio';
+                        radio.name = params.name;
+                        radio.value = option;
+                        radio.id = `${params.name}-${option}`;
+                        radio.className = 'focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300';
+                        
                         const label = document.createElement('label');
-                        applyStyle(label, `inline-flex items-center`);
+                        label.htmlFor = `${params.name}-${option}`;
+                        label.className = 'ml-3 block text-sm font-medium text-gray-700';
+                        label.textContent = option;
                         
-                        const input = document.createElement('input');
-                        input.type = 'radio';
-                        input.name = args.name;
-                        input.value = option;
-                        applyStyle(input, `form-radio h-4 w-4 text-indigo-600 transition duration-150 ease-in-out`);
-                        
-                        const span = document.createElement('span');
-                        span.textContent = option;
-                        applyStyle(span, `ml-2 text-gray-700`);
-                        
-                        label.appendChild(input);
-                        label.appendChild(span);
-                        radioGroupContainer.appendChild(label);
+                        radioDiv.appendChild(radio);
+                        radioDiv.appendChild(label);
+                        groupContainer.appendChild(radioDiv);
                     });
-                    newElement.appendChild(radioGroupContainer);
+                    outputArea.appendChild(groupContainer);
                     break;
                 }
                 case 'checkbox-group': {
-                    const checkboxGroupContainer = document.createElement('div');
-                    applyStyle(checkboxGroupContainer, `space-y-2`);
-                    (args.options || []).forEach(option => {
+                    const groupContainer = document.createElement('div');
+                    groupContainer.className = 'mt-4';
+                    if (params.name) groupContainer.id = `checkbox-group-${params.name}`;
+
+                    params.options.forEach(option => {
+                        const checkboxDiv = document.createElement('div');
+                        checkboxDiv.className = 'flex items-center';
+                        
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.name = params.name;
+                        checkbox.value = option;
+                        checkbox.id = `${params.name}-${option}`;
+                        checkbox.className = 'focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded';
+                        
                         const label = document.createElement('label');
-                        applyStyle(label, `inline-flex items-center`);
+                        label.htmlFor = `${params.name}-${option}`;
+                        label.className = 'ml-3 block text-sm font-medium text-gray-700';
+                        label.textContent = option;
                         
-                        const input = document.createElement('input');
-                        input.type = 'checkbox';
-                        input.name = args.name;
-                        input.value = option;
-                        applyStyle(input, `form-checkbox h-4 w-4 text-indigo-600 transition duration-150 ease-in-out`);
-                        
-                        const span = document.createElement('span');
-                        span.textContent = option;
-                        applyStyle(span, `ml-2 text-gray-700`);
-                        
-                        label.appendChild(input);
-                        label.appendChild(span);
-                        checkboxGroupContainer.appendChild(label);
+                        checkboxDiv.appendChild(checkbox);
+                        checkboxDiv.appendChild(label);
+                        groupContainer.appendChild(checkboxDiv);
                     });
-                    newElement.appendChild(checkboxGroupContainer);
+                    outputArea.appendChild(groupContainer);
                     break;
                 }
                 case 'dropdown': {
+                    const dropdownContainer = document.createElement('div');
+                    dropdownContainer.className = 'mt-4';
+                    if (params.id) dropdownContainer.id = params.id;
+
                     const label = document.createElement('label');
-                    label.textContent = args.label || '';
-                    label.htmlFor = args.id;
-                    applyStyle(label, 'block text-sm font-medium text-gray-700');
-                    newElement.appendChild(label);
-                    
+                    label.htmlFor = params.id;
+                    label.className = 'block text-sm font-medium text-gray-700';
+                    label.textContent = params.label;
+                    outputArea.appendChild(label);
+
                     const select = document.createElement('select');
-                    select.id = args.id;
-                    applyStyle(select, `mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md ${args.style}`);
+                    select.id = params.id;
+                    select.className = 'mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md';
                     
-                    (args.options || []).forEach(optionText => {
+                    params.options.forEach(optionText => {
                         const option = document.createElement('option');
                         option.textContent = optionText;
                         option.value = optionText;
                         select.appendChild(option);
                     });
-                    newElement.appendChild(select);
+                    outputArea.appendChild(select);
                     break;
                 }
                 case 'modal': {
-                    const modalOverlay = document.createElement('div');
-                    modalOverlay.id = args.id;
-                    applyStyle(modalOverlay, `flux-modal-overlay hidden`);
-                    
-                    const modalContent = document.createElement('div');
-                    applyStyle(modalContent, `flux-modal-content`);
-                    
-                    const title = document.createElement('h3');
-                    title.textContent = args.title || 'Modal Title';
-                    applyStyle(title, `text-xl font-bold mb-2`);
-                    
-                    const text = document.createElement('p');
-                    text.innerHTML = args.text || 'Modal content.';
-                    applyStyle(text, `text-gray-600`);
-                    
-                    const closeButton = document.createElement('button');
-                    closeButton.textContent = 'Close';
-                    applyStyle(closeButton, `mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition`);
-                    closeButton.onclick = () => {
-                        modalOverlay.classList.add('hidden');
+                    const modal = document.createElement('div');
+                    modal.id = params.id;
+                    modal.className = 'flux-modal-overlay hidden';
+                    modal.innerHTML = `
+                        <div class="flux-modal-content">
+                            <h3 class="text-2xl font-bold mb-4">${params.title}</h3>
+                            <p class="text-gray-600 mb-6">${params.text}</p>
+                            <button class="modal-close-btn px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">Close</button>
+                        </div>
+                    `;
+                    modal.querySelector('.modal-close-btn').onclick = () => {
+                        modal.classList.add('hidden');
                     };
-                    
-                    modalContent.appendChild(title);
-                    modalContent.appendChild(text);
-                    modalContent.appendChild(closeButton);
-                    modalOverlay.appendChild(modalContent);
-                    document.body.appendChild(modalOverlay);
-                    return; // Don't append to the output container
+                    document.body.appendChild(modal);
+                    activeModals[params.id] = modal;
+                    break;
                 }
                 case 'button.modal': {
                     const button = document.createElement('button');
-                    button.textContent = args.text || 'Open Modal';
-                    applyStyle(button, `px-4 py-2 rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 transition ${args.style}`);
+                    button.textContent = params.text;
+                    button.className = `bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition ${params.style}`;
                     button.onclick = () => {
-                        const modal = document.getElementById(args.modalId);
+                        const modal = activeModals[params.modalId];
                         if (modal) {
                             modal.classList.remove('hidden');
-                        } else {
-                            showToast(`Modal with ID '${args.modalId}' not found.`, 'error');
                         }
                     };
-                    newElement.appendChild(button);
+                    outputArea.appendChild(button);
                     break;
                 }
-                default: {
-                    showToast(`Unknown command: ${command}`, 'error');
-                    break;
-                }
-            }
-
-            // Append to the correct parent element
-            (targetElement || dynamicOutputContainer).appendChild(newElement);
-            return newElement; // Return the new element for nested commands
-        };
-
-        const parseFluxCode = (code) => {
-            const lines = code.split('\n').map(line => line.trim()).filter(line => line.length > 0 && !line.startsWith('//'));
-            const commands = [];
-            let currentParent = null;
-
-            lines.forEach(line => {
-                const match = line.match(/^([a-zA-Z0-9\.-]+):\s*(.*)/);
-                if (!match) {
-                    return;
-                }
-                const command = match[1];
-                const paramsString = match[2];
-
-                const args = {};
-                const regex = /(\w+)=(".*?"|'.*?'|\[.*?\]|\{.*?\}|\S+)/g;
-                let paramMatch;
-                while ((paramMatch = regex.exec(paramsString)) !== null) {
-                    const key = paramMatch[1];
-                    let value = paramMatch[2];
-                    if (value.startsWith('"') && value.endsWith('"')) {
-                        value = value.slice(1, -1);
-                    } else if (value.startsWith("'") && value.endsWith("'")) {
-                        value = value.slice(1, -1);
-                    } else if (value.startsWith('[') && value.endsWith(']')) {
-                        try {
-                            value = JSON.parse(value);
-                        } catch (e) {
-                            value = [];
+                case 'repeat': {
+                    const count = parseInt(params.count, 10);
+                    if (isNaN(count)) break;
+                    
+                    for (let index = 0; index < count; index++) {
+                        const commands = params.commands;
+                        if (commands) {
+                            // Replace {index} placeholder
+                            const populatedCommands = commands.replace(/{index}/g, index);
+                            await executeFluxCommands(populatedCommands);
                         }
-                    } else if (value.startsWith('{') && value.endsWith('}')) {
-                        try {
-                            value = JSON.parse(value);
-                        } catch (e) {
-                            value = {};
-                        }
-                    } else if (value.toLowerCase() === 'true') {
-                        value = true;
-                    } else if (value.toLowerCase() === 'false') {
-                        value = false;
-                    } else if (!isNaN(Number(value))) {
-                        value = Number(value);
                     }
-                    args[key] = value;
+                    break;
                 }
-                
-                commands.push({ command, args, parent: currentParent });
-
-                // Handle nested commands for form and grid/flex
-                if (['form', 'grid', 'flex'].includes(command)) {
-                    currentParent = commands.at(-1);
-                } else if (line.endsWith('end') && currentParent) {
-                    currentParent = null;
+                case 'if': {
+                    // Handled at a higher level to manage nested commands correctly.
+                    break;
                 }
-            });
-            return commands;
-        };
-
-        const executeFluxCommands = async (code, targetElement = dynamicOutputContainer) => {
-            const commands = parseFluxCode(code);
-            if (commands.length === 0) return;
-
-            const commandQueue = [...commands];
-            let currentContext = { targetElement };
-
-            while (commandQueue.length > 0) {
-                const cmd = commandQueue.shift();
-                const { command, args } = cmd;
-
-                if (['form', 'grid', 'flex'].includes(command)) {
-                    const newElement = renderElement(command, args, currentContext.targetElement);
-                    currentContext.targetElement = newElement.lastElementChild || newElement;
-                    continue;
+                case 'fetch': {
+                    try {
+                        const response = await fetch(params.url, {
+                            method: params.method || 'GET',
+                            headers: params.headers || {},
+                            body: params.body
+                        });
+                        const result = await response.json();
+                        if (params.onSuccess) {
+                            const populatedCommands = params.onSuccess.replace(/{result}/g, JSON.stringify(result));
+                            await executeFluxCommands(populatedCommands);
+                        }
+                    } catch (error) {
+                        if (params.onError) {
+                            const populatedCommands = params.onError.replace(/{error}/g, JSON.stringify(error));
+                            await executeFluxCommands(populatedCommands);
+                        } else {
+                            showError(`Fetch error: ${error.message}`);
+                        }
+                    }
+                    break;
                 }
-                if (['end'].includes(command)) {
-                    currentContext.targetElement = dynamicOutputContainer;
-                    continue;
-                }
+                case 'loop': {
+                    const start = parseInt(params.from, 10);
+                    const end = parseInt(params.to, 10);
+                    const step = parseInt(params.step, 10) || 1;
+                    if (isNaN(start) || isNaN(end)) break;
 
-                switch (command) {
-                    case 'show':
-                        document.getElementById(args.id)?.classList.remove('hidden');
-                        break;
-                    case 'hide':
-                        document.getElementById(args.id)?.classList.add('hidden');
-                        break;
-                    case 'wait':
-                        await wait(args.seconds || 1);
-                        break;
-                    case 'alert':
-                        showCustomAlert(args.text);
-                        break;
-                    case 'set':
-                        state[args.key] = args.value;
-                        console.log(`State key '${args.key}' set to:`, state[args.key]);
-                        break;
-                    case 'get':
-                        const element = document.getElementById(args.targetId);
-                        if (element && state.hasOwnProperty(args.key)) {
-                            if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
-                                element.value = state[args.key];
-                            } else {
-                                element.textContent = state[args.key];
-                            }
+                    for (let index = start; index <= end; index += step) {
+                        const commands = params.commands;
+                        if (commands) {
+                            const populatedCommands = commands.replace(/{index}/g, index);
+                            await executeFluxCommands(populatedCommands);
                         }
-                        break;
-                    case 'get.input':
-                        const inputElement = document.getElementById(args.id);
-                        if (inputElement) {
-                            state[args.key] = inputElement.value;
-                            console.log(`State key '${args.key}' updated from input:`, state[args.key]);
-                        }
-                        break;
-                    case 'if':
-                        const conditionResult = safeEvaluateCondition(args.condition);
-                        if (conditionResult) {
-                            if (args.then) {
-                                await executeFluxCommands(args.then, currentContext.targetElement);
-                            }
-                        } else {
-                            if (args.else) {
-                                await executeFluxCommands(args.else, currentContext.targetElement);
-                            }
-                        }
-                        break;
-                    case 'for':
-                        const collection = state[args.collection];
-                        if (Array.isArray(collection)) {
-                            for (const item of collection) {
-                                // Create a temporary state for the loop item
-                                const tempState = { ...state, [args.as]: item };
-                                const originalState = { ...state }; // Backup original state
-                                Object.assign(state, tempState); // Merge temp state
-
-                                await executeFluxCommands(args.do, currentContext.targetElement);
-                                Object.assign(state, originalState); // Restore original state
-                            }
-                        }
-                        break;
-                    case 'firebase.set':
-                    case 'firebase.update':
-                        if (window.db && window.userId) {
-                            try {
-                                const data = JSON.parse(args.data);
-                                const docPath = `artifacts/${window.appId}/users/${window.userId}/${args.path}`;
-                                if (command === 'firebase.set') {
-                                    await setDoc(doc(window.db, docPath), data, { merge: true });
-                                    showToast(`Data set at path: ${docPath}`, 'success');
-                                } else {
-                                    await updateDoc(doc(window.db, docPath), data);
-                                    showToast(`Data updated at path: ${docPath}`, 'success');
-                                }
-                            } catch (e) {
-                                showToast(`Error saving to Firebase: ${e.message}`, 'error');
-                            }
-                        } else {
-                            showToast('Firebase not initialized or user not signed in.', 'error');
-                        }
-                        break;
-                    case 'firebase.get':
-                        if (window.db && window.userId) {
-                            try {
-                                const docPath = `artifacts/${window.appId}/users/${window.userId}/${args.path}`;
-                                const docSnap = await getDoc(doc(window.db, docPath));
-                                if (docSnap.exists()) {
-                                    state[args.key] = docSnap.data();
-                                    showToast(`Data retrieved for key '${args.key}'`, 'success');
-                                    renderFluxApp(); // Re-render the app to reflect the new state
-                                } else {
-                                    showToast(`No document found at path: ${docPath}`, 'warning');
-                                }
-                            } catch (e) {
-                                showToast(`Error retrieving from Firebase: ${e.message}`, 'error');
-                            }
-                        } else {
-                            showToast('Firebase not initialized or user not signed in.', 'error');
-                        }
-                        break;
-                    case 'firebase.delete':
-                        if (window.db && window.userId) {
-                            try {
-                                const docPath = `artifacts/${window.appId}/users/${window.userId}/${args.path}`;
-                                await deleteDoc(doc(window.db, docPath));
-                                showToast(`Document deleted at path: ${docPath}`, 'success');
-                            } catch (e) {
-                                showToast(`Error deleting document: ${e.message}`, 'error');
-                            }
-                        } else {
-                            showToast('Firebase not initialized or user not signed in.', 'error');
-                        }
-                        break;
-                    case 'firebase.listen':
-                        if (window.db && window.userId) {
-                            try {
-                                const docPath = `artifacts/${window.appId}/users/${window.userId}/${args.path}`;
-                                onSnapshot(doc(window.db, docPath), (doc) => {
-                                    if (doc.exists()) {
-                                        state[args.key] = doc.data();
-                                        showToast(`Real-time update for key '${args.key}'`, 'info');
-                                        renderFluxApp();
-                                    } else {
-                                        console.log("No such document!");
-                                    }
-                                });
-                            } catch (e) {
-                                showToast(`Error setting up listener: ${e.message}`, 'error');
-                            }
-                        } else {
-                            showToast('Firebase not initialized or user not signed in.', 'error');
-                        }
-                        break;
-                    default:
-                        renderElement(command, args, currentContext.targetElement);
-                        break;
+                    }
+                    break;
                 }
+                case 'foreach': {
+                    if (Array.isArray(params.array)) {
+                        for (let index = 0; index < params.array.length; index++) {
+                            const item = params.array[index];
+                            const commands = params.commands;
+                            if (commands) {
+                                let populatedCommands = commands.replace(/{item}/g, JSON.stringify(item));
+                                populatedCommands = populatedCommands.replace(/{index}/g, index);
+                                await executeFluxCommands(populatedCommands);
+                            }
+                        }
+                    }
+                    break;
+                }
+                case 'switch': {
+                    const variableValue = state[params.variable];
+                    const commandsForCase = params.cases[variableValue] || params.cases.default;
+                    if (commandsForCase) {
+                        await executeFluxCommands(commandsForCase);
+                    }
+                    break;
+                }
+                case 'interval': {
+                    if (fluxIntervals[params.id]) {
+                        clearInterval(fluxIntervals[params.id]);
+                    }
+                    const intervalId = setInterval(() => {
+                        executeFluxCommands(params.commands);
+                    }, params.seconds * 1000);
+                    fluxIntervals[params.id] = intervalId;
+                    break;
+                }
+                case 'clearInterval': {
+                    if (fluxIntervals[params.id]) {
+                        clearInterval(fluxIntervals[params.id]);
+                        delete fluxIntervals[params.id];
+                    }
+                    break;
+                }
+                case 'countdown': {
+                    if (countdownTimers[params.id]) {
+                        clearInterval(countdownTimers[params.id].intervalId);
+                    }
+                    let secondsLeft = parseInt(params.seconds, 10);
+                    const intervalId = setInterval(() => {
+                        if (secondsLeft > 0) {
+                            if (params.onTick) {
+                                const populatedCommands = params.onTick.replace(/{secondsLeft}/g, secondsLeft);
+                                executeFluxCommands(populatedCommands);
+                            }
+                            secondsLeft--;
+                        } else {
+                            clearInterval(intervalId);
+                            if (params.onEnd) {
+                                executeFluxCommands(params.onEnd);
+                            }
+                            delete countdownTimers[params.id];
+                        }
+                    }, 1000);
+                    countdownTimers[params.id] = { intervalId, secondsLeft };
+                    break;
+                }
+                case 'stopCountdown': {
+                    if (countdownTimers[params.id]) {
+                        clearInterval(countdownTimers[params.id].intervalId);
+                        delete countdownTimers[params.id];
+                    }
+                    break;
+                }
+                default:
+                    console.warn(`Unknown command: ${commandName}`);
             }
         };
 
-        const renderFluxApp = async () => {
-            if (window.userId) {
-                errorContainer.classList.add('hidden');
-                outputContainer.innerHTML = ''; // Clear all previous content
-                showMainAppView();
-                const newDynamicOutputContainer = document.createElement('div');
-                newDynamicOutputContainer.id = 'dynamic-output';
-                outputContainer.appendChild(newDynamicOutputContainer);
-                const fluxCode = editor.value;
-                await executeFluxCommands(fluxCode, newDynamicOutputContainer);
-            } else {
-                errorText.textContent = "Please wait for user authentication to complete...";
-                errorContainer.classList.remove('hidden');
-            }
+        const showError = (message) => {
+            errorText.textContent = message;
+            errorContainer.classList.remove('hidden');
         };
 
-        // Event listener for editor changes
-        editor.addEventListener('input', () => {
-            renderFluxApp();
-        });
+        const hideError = () => {
+            errorContainer.classList.add('hidden');
+        };
 
-        // Initial render on page load
+        editor.oninput = () => {
+            hideError();
+            // Optional: Auto-render on input if performance is good
+            // renderFlux();
+        };
+
+        // --- Initial App Load ---
+        window.renderFluxApp = () => {
+            dynamicOutputContainer.classList.remove('hidden');
+            renderFlux();
+        };
+
         document.addEventListener('DOMContentLoaded', () => {
-            // Check if Firebase is already initialized, if not, the onAuthStateChanged listener will call renderFluxApp later.
-            if (window.auth && window.auth.currentUser) {
-                renderFluxApp();
-            }
+             // Initial render call, now happens without waiting for auth
+             window.renderFluxApp();
         });
+
     </script>
 </body>
 </html>
